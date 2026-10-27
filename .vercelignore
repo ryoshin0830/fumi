@@ -1,0 +1,10 @@
+.git/
+node_modules/
+.next/
+.generated/
+public/assets/
+index.html
+test-results/
+logs/
+.env*
+*.log

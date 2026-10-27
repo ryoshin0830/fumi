@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.generated/
+.vercel/
+public/assets/
+index.html
+test-results/
+logs/
+*.log
+.env*
+!.env.example
+.DS_Store
+.vercel

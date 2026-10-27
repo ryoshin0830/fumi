@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="dgpg-key-source" content="__KEY_SOURCE__" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="__CSP__" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light" />
+    <meta
+      name="description"
+      content="GitHubの公開鍵で暗号化。秘密鍵で復号。OpenPGPとSSH・ageに対応する、ブラウザ内で暗号処理する小さなツール。"
+    />
+    <title>Fumi — 安全に渡す。手元で開く。</title>
+    <style>
+      __STYLES__
+    </style>
+  </head>
+  <body>
+    <a href="#workspace" class="skip-link">操作画面へ移動</a>
+    <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <symbol id="lock" viewBox="0 0 24 24">
+          <rect x="5" y="10" width="14" height="11" rx="3" />
+          <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
+        </symbol>
+        <symbol id="unlock" viewBox="0 0 24 24">
+          <rect x="5" y="10" width="14" height="11" rx="3" />
+          <path d="M8 10V7a4 4 0 0 1 7.5-2M12 14v3" />
+        </symbol>
+        <symbol id="file" viewBox="0 0 24 24">
+          <path
+            d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5"
+          />
+        </symbol>
+        <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6" /></symbol>
+        <symbol id="upload" viewBox="0 0 24 24">
+          <path d="M12 16V3m-5 5 5-5 5 5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+        </symbol>
+        <symbol id="download" viewBox="0 0 24 24">
+          <path d="M12 3v13m-5-5 5 5 5-5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+        </symbol>
+        <symbol id="copy" viewBox="0 0 24 24">
+          <rect x="8" y="8" width="13" height="13" rx="2" />
+          <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+        </symbol>
+        <symbol id="key" viewBox="0 0 24 24">
+          <circle cx="8" cy="8" r="5" />
+          <path d="m11.5 11.5 9 9M16 16l3-3M18.5 18.5l3-3" />
+        </symbol>
+        <symbol id="shield" viewBox="0 0 24 24">
+          <path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6zM8 12l3 3 5-6" />
+        </symbol>
+        <symbol id="check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
+        <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" /></symbol>
+        <symbol id="info" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v6M12 7v1" />
+        </symbol>
+        <symbol id="eye" viewBox="0 0 24 24">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7" />
+          <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol id="spark" viewBox="0 0 24 24">
+          <path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7z" />
+        </symbol>
+      </defs>
+    </svg>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="#" aria-label="Fumi ホーム"
+          ><span class="brand-symbol"
+            ><svg class="icon" aria-hidden="true"><use href="#lock" /></svg></span
+          >Fumi<span class="brand-dot">.</span></a
+        >
+        <div class="header-right">
+          <span class="local-label"
+            ><svg class="icon" aria-hidden="true"><use href="#shield" /></svg>ブラウザ内で処理</span
+          ><button id="help-button" class="quiet-button" type="button">
+            使い方<svg class="icon small" aria-hidden="true"><use href="#info" /></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+    <main class="app-shell">
+      <div class="intro">
+        <h1>安全に渡す。手元で開く。</h1>
+        <p>暗号化も、復号も。すべてブラウザの中で。</p>
+      </div>
+      <div class="operation-tabs" role="tablist" aria-label="操作を選ぶ">
+        <button
+          id="encrypt-tab"
+          role="tab"
+          aria-selected="true"
+          aria-controls="encrypt-panel"
+          tabindex="0"
+          type="button"
+          data-operation="encrypt"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#lock" /></svg>暗号化</button
+        ><button
+          id="decrypt-tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="decrypt-panel"
+          tabindex="-1"
+          type="button"
+          data-operation="decrypt"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#unlock" /></svg>復号
+        </button>
+      </div>
+      <noscript><p class="notice error">JavaScriptを有効にしてください。</p></noscript>
+      <section id="workspace" class="workspace" aria-label="暗号化・復号ツール" tabindex="-1">
+        <div class="workspace-heading">
+          <div>
+            <h2 id="operation-title">データを暗号化</h2>
+            <p id="operation-description">公開鍵で、相手だけが開ける形に。</p>
+          </div>
+          <button id="demo-button" class="quiet-button" type="button">
+            <svg class="icon small" aria-hidden="true"><use href="#spark" /></svg>サンプル
+          </button>
+        </div>
+        <form id="main-form" autocomplete="off">
+          <div
+            id="encrypt-panel"
+            class="operation-panel"
+            role="tabpanel"
+            aria-labelledby="encrypt-tab"
+          >
+            <div class="form-columns">
+              <section
+                class="content-group"
+                data-drop="encrypt"
+                aria-labelledby="encrypt-content-title"
+              >
+                <h3 id="encrypt-content-title"><span class="step-number">1</span>暗号化する内容</h3>
+                <div class="input-tabs" role="group" aria-label="暗号化する内容の入力方法">
+                  <button type="button" data-input="encrypt" data-kind="text" aria-pressed="true">
+                    テキスト</button
+                  ><button type="button" data-input="encrypt" data-kind="file" aria-pressed="false">
+                    ファイル
+                  </button>
+                </div>
+                <div id="encrypt-text-pane">
+                  <label class="sr-only" for="encrypt-text">暗号化するテキスト</label
+                  ><textarea
+                    id="encrypt-text"
+                    class="content-input"
+                    placeholder="安全に届けたいメッセージを入力。"
+                    spellcheck="false"
+                    aria-describedby="encrypt-content-hint"
+                  ></textarea>
+                </div>
+                <div id="encrypt-file-pane" hidden>
+                  <label class="drop-zone" for="encrypt-file"
+                    ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
+                    ><strong id="encrypt-file-name">ファイルをここにドロップ</strong
+                    ><span>または、クリックして選択</span
+                    ><small>画像、PDF、ドキュメントなど · 最大50 MB</small
+                    ><input
+                      type="file"
+                      id="encrypt-file"
+                      aria-label="暗号化するファイルを選択" /></label
+                  ><button
+                    id="encrypt-file-remove"
+                    type="button"
+                    class="quiet-button remove-file"
+                    hidden
+                  >
+                    ファイルを取り除く
+                  </button>
+                </div>
+                <div class="input-footer">
+                  <span id="encrypt-content-hint">テキストやファイルを、そのまま暗号化します。</span
+                  ><span id="encrypt-size"></span>
+                </div>
+                <p id="encrypt-content-error" class="field-error" role="alert" hidden></p>
+              </section>
+              <section class="recipient-group" aria-labelledby="recipient-title">
+                <h3 id="recipient-title"><span class="step-number">2</span>送信先の公開鍵</h3>
+                <label class="field-label" for="github-user">GitHubユーザー</label>
+                <div class="github-field">
+                  <div class="username-input">
+                    <span aria-hidden="true">@</span
+                    ><input
+                      id="github-user"
+                      type="text"
+                      placeholder="username"
+                      autocapitalize="none"
+                      autocomplete="off"
+                      spellcheck="false"
+                      aria-describedby="github-hint github-error"
+                    />
+                  </div>
+                  <button id="lookup-button" class="secondary-button" type="button">取得</button>
+                </div>
+                <p id="github-hint" class="field-hint">
+                  ユーザー名、プロフィール、.gpg / .keys のURL
+                </p>
+                <p id="github-error" class="field-error" role="alert" hidden></p>
+                <div id="github-recovery" class="github-recovery" hidden>
+                  <strong>公開鍵のページから取り込めます</strong>
+                  <p>
+                    GitHubの公開鍵を開いてコピーし、「公開鍵を直接入力」に貼り付けてください。秘密鍵は不要です。
+                  </p>
+                  <div class="recovery-actions">
+                    <a
+                      id="github-gpg-page"
+                      class="inline-link"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      >.gpg を開く ↗</a
+                    ><a
+                      id="github-ssh-page"
+                      class="inline-link"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      >.keys を開く ↗</a
+                    ><button id="open-manual-keys" type="button" class="quiet-button">
+                      公開鍵を直接入力
+                    </button>
+                  </div>
+                </div>
+                <div id="recipient-placeholder" class="recipient-placeholder">
+                  <svg class="icon" aria-hidden="true"><use href="#key" /></svg>
+                  <p>GitHubから公開鍵を取得するか、<br />お持ちの公開鍵を直接入力できます。</p>
+                </div>
+                <div id="recipient-card" class="recipient-card" hidden>
+                  <div class="recipient-identity">
+                    <span id="recipient-avatar" class="recipient-avatar" aria-hidden="true">@</span>
+                    <div>
+                      <strong id="recipient-name"></strong>
+                      <p id="recipient-count"></p>
+                    </div>
+                    <span class="fetched-tag"
+                      ><svg class="icon small" aria-hidden="true"><use href="#check" /></svg
+                      >読込済み</span
+                    >
+                  </div>
+                  <div
+                    id="format-switch"
+                    class="format-switch"
+                    role="group"
+                    aria-label="暗号化形式"
+                    hidden
+                  >
+                    <button type="button" data-format="pgp" aria-pressed="true">OpenPGP</button
+                    ><button type="button" data-format="ssh" aria-pressed="false">SSH / age</button>
+                  </div>
+                  <p id="format-explanation" class="format-explanation"></p>
+                  <details id="key-details">
+                    <summary>公開鍵を確認<span id="format-badge"></span></summary>
+                    <ul id="key-list" class="key-list"></ul>
+                    <p class="field-hint">
+                      本人確認が必要な場合は、鍵の指紋を相手と照合してください。
+                    </p>
+                    <a
+                      id="source-link"
+                      class="inline-link"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      hidden
+                      >GitHubの公開鍵を見る ↗</a
+                    >
+                  </details>
+                </div>
+                <details id="manual-keys" class="manual-keys">
+                  <summary>公開鍵を直接入力</summary>
+                  <label class="sr-only" for="recipient-text">送信先の公開鍵</label
+                  ><textarea
+                    id="recipient-text"
+                    class="key-input"
+                    placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;または ssh-ed25519 / ssh-rsa の公開鍵"
+                    spellcheck="false"
+                    autocapitalize="none"
+                  ></textarea>
+                  <div class="manual-actions">
+                    <label class="file-button" for="recipient-file"
+                      ><svg class="icon small" aria-hidden="true"><use href="#upload" /></svg
+                      >鍵ファイル<input
+                        type="file"
+                        id="recipient-file"
+                        aria-label="公開鍵ファイルを選ぶ" /></label
+                    ><button type="button" id="use-key-button" class="secondary-button">
+                      この公開鍵を使う
+                    </button>
+                  </div>
+                  <p id="recipient-error" class="field-error" role="alert" hidden></p>
+                </details>
+              </section>
+            </div>
+            <section id="signing-section" class="signing-section" aria-label="署名の設定">
+              <label class="signing-toggle-row" for="include-signature"
+                ><span class="signing-label"
+                  ><svg class="icon" aria-hidden="true"><use href="#key" /></svg
+                  ><span
+                    ><strong>署名を付ける <span class="optional-label">任意</span></strong
+                    ><span id="signing-summary"
+                      >あなたのGitHubの鍵で、送信者を確かめられるように。</span
+                    ></span
+                  ></span
+                ><span class="switch-control"
+                  ><input
+                    id="include-signature"
+                    type="checkbox"
+                    role="switch"
+                    aria-controls="signer-fields"
+                    aria-describedby="signing-summary" /><span
+                    class="switch-track"
+                    aria-hidden="true"
+                  ></span></span
+              ></label>
+              <div id="signer-fields" hidden>
+                <div class="signing-delivery">
+                  <svg class="icon small" aria-hidden="true"><use href="#info" /></svg>
+                  <div>
+                    <strong id="signing-delivery-title">受け取る人の開き方</strong>
+                    <p id="signing-delivery-text">
+                      OpenPGP鍵同士はGPG標準形式。ageやSSH署名を使う場合は、元ファイルと署名をZIPに同封します。
+                    </p>
+                  </div>
+                </div>
+                <div class="signer-grid">
+                  <div class="signer-account-group">
+                    <label for="signer-github" class="field-label"
+                      >あなたのGitHubユーザー名 <span class="required-label">必須</span></label
+                    >
+                    <div class="username-input">
+                      <span aria-hidden="true">@</span
+                      ><input
+                        id="signer-github"
+                        type="text"
+                        placeholder="your-github-name"
+                        spellcheck="false"
+                        autocapitalize="none"
+                        autocomplete="off"
+                        aria-describedby="signer-error"
+                      />
+                    </div>
+                    <p class="field-hint">署名する前に、現在の登録公開鍵と照合します。</p>
+                  </div>
+                  <div class="signer-key-group" data-drop="signer">
+                    <label for="signer-text" class="field-label"
+                      >あなたの署名用の秘密鍵 <span class="required-label">必須</span></label
+                    >
+                    <div class="input-tabs" role="group" aria-label="署名用の秘密鍵の入力方法">
+                      <button
+                        type="button"
+                        data-input="signer"
+                        data-kind="text"
+                        aria-pressed="true"
+                      >
+                        テキスト</button
+                      ><button
+                        type="button"
+                        data-input="signer"
+                        data-kind="file"
+                        aria-pressed="false"
+                      >
+                        ファイル
+                      </button>
+                    </div>
+                    <div id="signer-text-pane">
+                      <textarea
+                        id="signer-text"
+                        class="key-input signer-input"
+                        placeholder="OpenPGP / OpenSSH / PEM の秘密鍵"
+                        spellcheck="false"
+                        autocapitalize="none"
+                        aria-describedby="signer-error"
+                      ></textarea>
+                    </div>
+                    <div id="signer-file-pane" hidden>
+                      <label class="drop-zone compact" for="signer-file"
+                        ><svg class="icon" aria-hidden="true"><use href="#key" /></svg
+                        ><strong id="signer-file-name">署名用の秘密鍵ファイルを選ぶ</strong
+                        ><small>このブラウザ内でのみ読み込みます。</small
+                        ><input
+                          type="file"
+                          id="signer-file"
+                          aria-label="署名用の秘密鍵ファイルを選択"
+                      /></label>
+                    </div>
+                  </div>
+                  <div class="signer-password-group">
+                    <label for="signer-passphrase" class="field-label"
+                      >署名鍵のパスフレーズ
+                      <span class="optional-label">必要な場合のみ</span></label
+                    >
+                    <div class="password-field">
+                      <input
+                        id="signer-passphrase"
+                        type="password"
+                        placeholder="パスフレーズを入力"
+                        autocomplete="off"
+                        spellcheck="false"
+                      /><button
+                        id="signer-toggle-passphrase"
+                        type="button"
+                        aria-label="署名鍵のパスフレーズを表示"
+                        aria-pressed="false"
+                      >
+                        <svg class="icon" aria-hidden="true"><use href="#eye" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p id="signer-error" class="field-error" role="alert" hidden></p>
+                <p class="signature-privacy">
+                  <svg class="icon small" aria-hidden="true"><use href="#lock" /></svg
+                  >秘密鍵は端末内で使用します。GitHubに送るのはユーザー名だけです。
+                </p>
+                <details class="signing-format-help">
+                  <summary>署名と互換性について</summary>
+                  <p>
+                    送信先と署名者がOpenPGP鍵の場合、GPG標準の署名付き暗号化を使います。それ以外は、元の名前のファイル・署名・確認手順をZIPにまとめて暗号化します。GPG・ageで開く場合はZIPを展開してください。このアプリでは自動で元データを取り出して署名を照合します。
+                  </p>
+                </details>
+              </div>
+            </section>
+          </div>
+          <div
+            id="decrypt-panel"
+            class="operation-panel"
+            role="tabpanel"
+            aria-labelledby="decrypt-tab"
+            hidden
+          >
+            <div class="form-columns">
+              <section
+                class="content-group"
+                data-drop="decrypt"
+                aria-labelledby="decrypt-content-title"
+              >
+                <h3 id="decrypt-content-title"><span class="step-number">1</span>復号する内容</h3>
+                <div class="input-tabs" role="group" aria-label="復号する内容の入力方法">
+                  <button type="button" data-input="decrypt" data-kind="text" aria-pressed="true">
+                    テキスト</button
+                  ><button type="button" data-input="decrypt" data-kind="file" aria-pressed="false">
+                    ファイル
+                  </button>
+                </div>
+                <div id="decrypt-text-pane">
+                  <label class="sr-only" for="decrypt-text">復号する暗号文</label
+                  ><textarea
+                    id="decrypt-text"
+                    class="content-input code-input"
+                    placeholder="-----BEGIN PGP MESSAGE-----&#10;&#10;または、age形式の暗号文を貼り付け。"
+                    spellcheck="false"
+                    autocapitalize="none"
+                    aria-describedby="decrypt-content-hint"
+                  ></textarea>
+                </div>
+                <div id="decrypt-file-pane" hidden>
+                  <label class="drop-zone" for="decrypt-file"
+                    ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
+                    ><strong id="decrypt-file-name">暗号化ファイルをドロップ</strong
+                    ><span>または、クリックして選択</span
+                    ><small>.gpg / .pgp / .asc / .age · 最大72 MB</small
+                    ><input
+                      type="file"
+                      id="decrypt-file"
+                      aria-label="復号するファイルを選択" /></label
+                  ><button
+                    id="decrypt-file-remove"
+                    type="button"
+                    class="quiet-button remove-file"
+                    hidden
+                  >
+                    ファイルを取り除く
+                  </button>
+                </div>
+                <div class="input-footer">
+                  <span id="decrypt-content-hint">形式は自動判別。OpenPGP / age に対応。</span
+                  ><span id="decrypt-size"></span>
+                </div>
+                <p id="decrypt-content-error" class="field-error" role="alert" hidden></p>
+              </section>
+              <section class="secret-group" data-drop="secret" aria-labelledby="secret-title">
+                <h3 id="secret-title"><span class="step-number">2</span>あなたの秘密鍵</h3>
+                <p id="secret-hint" class="field-hint secret-hint">
+                  暗号化に使われた公開鍵に対応する秘密鍵です。
+                </p>
+                <div class="input-tabs" role="group" aria-label="秘密鍵の入力方法">
+                  <button type="button" data-input="secret" data-kind="text" aria-pressed="true">
+                    テキスト</button
+                  ><button type="button" data-input="secret" data-kind="file" aria-pressed="false">
+                    ファイル
+                  </button>
+                </div>
+                <div id="secret-text-pane">
+                  <label class="sr-only" for="secret-text">秘密鍵の内容</label
+                  ><textarea
+                    id="secret-text"
+                    class="key-input secret-input"
+                    placeholder="秘密鍵をここに貼り付け。&#10;OpenPGP / OpenSSH / PEM"
+                    spellcheck="false"
+                    autocapitalize="none"
+                    aria-describedby="secret-error"
+                  ></textarea>
+                </div>
+                <div id="secret-file-pane" hidden>
+                  <label class="drop-zone compact" for="secret-file"
+                    ><svg class="icon" aria-hidden="true"><use href="#key" /></svg
+                    ><strong id="secret-file-name">秘密鍵ファイルを選ぶ</strong
+                    ><small>このブラウザ内でのみ読み込みます。</small
+                    ><input type="file" id="secret-file" aria-label="秘密鍵ファイルを選択"
+                  /></label>
+                </div>
+                <p id="secret-error" class="field-error" role="alert" hidden></p>
+                <div class="password-label">
+                  <label class="field-label" for="passphrase">秘密鍵のパスフレーズ</label
+                  ><span>必要な場合のみ</span>
+                </div>
+                <div class="password-field">
+                  <input
+                    id="passphrase"
+                    type="password"
+                    placeholder="パスフレーズを入力"
+                    autocomplete="off"
+                    spellcheck="false"
+                  /><button
+                    type="button"
+                    id="toggle-passphrase"
+                    aria-label="パスフレーズを表示"
+                    aria-pressed="false"
+                  >
+                    <svg class="icon" aria-hidden="true"><use href="#eye" /></svg>
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+          <div id="operation-error" class="notice error" role="alert" hidden></div>
+          <div class="action-bar">
+            <p class="privacy-caption">
+              <svg class="icon" aria-hidden="true"><use href="#lock" /></svg
+              ><span>データと秘密鍵は外部へ送信されません。</span>
+            </p>
+            <div class="main-actions">
+              <button id="cancel-button" type="button" class="quiet-button" hidden>中止</button
+              ><button id="run-button" type="submit" class="primary-button" disabled>
+                <span id="run-label">暗号化する</span
+                ><svg class="icon small" aria-hidden="true"><use href="#arrow" /></svg>
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+      <section id="result-panel" class="result-panel" aria-labelledby="result-title" hidden>
+        <div class="result-header">
+          <div class="result-heading">
+            <span class="success-icon"
+              ><svg class="icon" aria-hidden="true"><use href="#check" /></svg
+            ></span>
+            <div>
+              <h2 id="result-title"></h2>
+              <p id="result-description"></p>
+            </div>
+          </div>
+          <span id="result-format" class="format-pill"></span>
+        </div>
+        <section id="signature-status" class="signature-status" aria-label="署名の検証結果">
+          <div class="signature-status-top">
+            <span class="signature-status-icon"
+              ><svg class="icon" aria-hidden="true">
+                <use id="signature-status-glyph" href="#info" /></svg
+            ></span>
+            <div class="signature-status-copy">
+              <h3 id="signature-status-title">署名なし</h3>
+              <p class="signature-account-line" id="signature-account-line" hidden>
+                <span id="signature-account-label">署名者（申告）</span
+                ><a id="signature-account" target="_blank" rel="noreferrer noopener"></a>
+              </p>
+              <p id="signature-status-message"></p>
+            </div>
+            <button id="retry-verification" type="button" class="quiet-button" hidden>
+              再照合
+            </button>
+          </div>
+          <details id="signature-details" hidden>
+            <summary>署名の詳細</summary>
+            <dl>
+              <dt>署名形式</dt>
+              <dd id="signature-algorithm"></dd>
+              <dt>鍵の指紋</dt>
+              <dd id="signature-fingerprint"></dd>
+              <dt>確認した時刻</dt>
+              <dd id="signature-checked-at"></dd>
+            </dl>
+            <p>
+              名前やメールアドレスだけでは本人確認になりません。この照合は署名が正しく、現在そのGitHubアカウントに登録されている公開鍵で検証できることを確かめます。
+            </p>
+          </details>
+        </section>
+        <div id="result-file" class="result-file">
+          <span class="file-icon"
+            ><svg class="icon" aria-hidden="true"><use href="#file" /></svg
+          ></span>
+          <div><strong id="result-filename"></strong><span id="result-size"></span></div>
+        </div>
+        <pre
+          id="result-text"
+          class="result-preview"
+          tabindex="0"
+          aria-label="処理結果"
+          translate="no"
+          hidden
+        ></pre>
+        <p id="preview-hint" class="field-hint" hidden></p>
+        <div class="result-bottom">
+          <p id="result-note"></p>
+          <div class="result-buttons">
+            <button id="copy-button" type="button" class="secondary-button">
+              <svg class="icon small" aria-hidden="true"><use href="#copy" /></svg
+              ><span id="copy-label">コピー</span></button
+            ><button id="save-button" type="button" class="primary-button">
+              <svg class="icon small" aria-hidden="true"><use href="#download" /></svg
+              >ファイルを保存
+            </button>
+          </div>
+        </div>
+        <button id="try-decrypt-button" class="quiet-button" type="button" hidden>
+          このサンプルを復号してみる<svg class="icon small" aria-hidden="true">
+            <use href="#arrow" />
+          </svg>
+        </button>
+        <details id="cli-help" class="cli-help">
+          <summary>コマンドラインで開くには</summary>
+          <p id="cli-description"></p>
+          <pre id="cli-command"></pre>
+        </details>
+      </section>
+      <div class="under-workspace">
+        <p>
+          <svg class="icon small" aria-hidden="true"><use href="#shield" /></svg
+          >公開鍵の取得時だけ通信します。暗号処理は端末内です。
+        </p>
+        <div>
+          <button id="clear-button" class="quiet-button" type="button">この入力をクリア</button
+          ><button id="clear-all-button" class="quiet-button" type="button">すべて消去</button>
+        </div>
+      </div>
+      <footer>
+        <span>秘密鍵・本文は端末内で処理します。</span
+        ><button id="about-button" class="quiet-button" type="button">Fumiについて</button>
+      </footer>
+      <p id="live-status" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></p>
+    </main>
+    <dialog id="help-dialog" aria-labelledby="help-title">
+      <div class="dialog-header">
+        <h2 id="help-title">使い方</h2>
+        <button type="button" class="close-dialog" aria-label="閉じる">
+          <svg class="icon" aria-hidden="true"><use href="#close" /></svg>
+        </button>
+      </div>
+      <div class="help-section">
+        <h3>暗号化して渡す</h3>
+        <p>
+          内容を入力して、相手のGitHubユーザー名から公開鍵を取得します。鍵を直接入力することもできます。暗号化したデータを保存・コピーして、相手に渡してください。
+        </p>
+      </div>
+      <div class="help-section">
+        <h3>受け取ったデータを開く</h3>
+        <p>
+          「復号」に切り替え、暗号文と対応する秘密鍵を入力します。秘密鍵が保護されている場合は、パスフレーズも入力します。
+        </p>
+      </div>
+      <div class="help-section">
+        <h3>OpenPGP と SSH / age</h3>
+        <p>
+          GitHubの <code>.gpg</code> の鍵では、GPG互換のOpenPGP形式を使います。<code>.keys</code>
+          のSSH鍵では、別の標準形式であるageを使います。ageはGPGで開けません。このアプリでは両方を復号できます。
+        </p>
+      </div>
+      <details>
+        <summary>対応する鍵・サイズ・オフライン</summary>
+        <p>
+          SSHはEd25519とRSA（2048bit以上）、パスフレーズ付きOpenSSH・従来のPEM（RSA）に対応。暗号化されたPKCS#8、ECDSA、セキュリティキー（sk-）には非対応です。OpenPGP署名専用鍵も暗号化には使えません。
+        </p>
+        <p>
+          暗号化・復元後のデータは最大50 MB、暗号文の入力は72 MB、鍵は1
+          MBです。手動の鍵入力と暗号処理はオフラインで使えます。
+        </p>
+        <p>
+          このアプリの署名付き暗号文を復号すると、署名を検証してGitHubの現在の登録公開鍵と自動照合します。オフラインの場合はGitHub未照合と表示します。プレビューはUTF-8です。元のバイナリは変更せず保存できます。署名付きデータは元ファイル名へ戻します。署名のないage形式は元ファイル名を格納しないため、入力ファイル名から拡張子を除いて保存します。
+        </p>
+      </details>
+    </dialog>
+    <dialog id="about-dialog" aria-labelledby="about-title">
+      <div class="dialog-header">
+        <h2 id="about-title">小さく、手元で。</h2>
+        <button type="button" class="close-dialog" aria-label="閉じる">
+          <svg class="icon" aria-hidden="true"><use href="#close" /></svg>
+        </button>
+      </div>
+      <p>
+        Fumiはブラウザ内で暗号処理する、暗号化・復号ツールです。入力内容をサーバーへアップロードせず、履歴や秘密鍵を保存しません。
+      </p>
+      <p>
+        __KEY_DESCRIPTION__署名を付ける場合と、署名付きデータを復号した場合にも、該当するユーザーの公開鍵を取得して照合します。これは
+        .gpg / .keys
+        に公開される登録鍵と同じものです。鍵の取得は、相手本人の確認を保証するものではありません。
+      </p>
+      <p>
+        「消去」は表示と参照を取り除き、進行中の処理を中止します。メモリからの完全消去を保証するものではありません。
+      </p>
+      <p>暗号処理: OpenPGP.js 6.3.2 / age 1.3.2</p>
+      <details>
+        <summary>オープンソースライセンス</summary>
+        <pre class="license-text">__LICENSE__</pre>
+      </details>
+    </dialog>
+    <script>
+      __SCRIPT__;
+    </script>
+  </body>
+</html>

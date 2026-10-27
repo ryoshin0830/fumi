@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.generated/
+.vercel/
+public/assets/
+index.html
+test-results/
+logs/
+src/vendor/
+package-lock.json
+crypto/
