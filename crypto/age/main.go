@@ -133,6 +133,8 @@ func encrypt(_ js.Value, args []js.Value) any {
 	return map[string]any{"bytes": outputBytes(buf.Bytes())}
 }
 
+var errPassphraseRequired = errors.New("秘密鍵のパスフレーズを入力してください。")
+
 func privateKey(privateKey, passphrase string) (any, error) {
 	if len(privateKey) > maxKey || len(passphrase) > maxKey {
 		return nil, errors.New("秘密鍵とパスフレーズは 1 MiB 以下にしてください。")
@@ -143,7 +145,7 @@ func privateKey(privateKey, passphrase string) (any, error) {
 	var missing *ssh.PassphraseMissingError
 	if errors.As(err, &missing) {
 		if passphrase == "" {
-			return nil, errors.New("秘密鍵のパスフレーズを入力してください。")
+			return nil, errPassphraseRequired
 		}
 		password := []byte(passphrase)
 		defer clear(password)
@@ -272,7 +274,11 @@ func decrypt(_ js.Value, args []js.Value) any {
 	}
 	i, err := identity(input.Get("privateKey").String(), input.Get("passphrase").String())
 	if err != nil {
-		return failure(err.Error())
+		result := failure(err.Error())
+		if errors.Is(err, errPassphraseRequired) {
+			result["code"] = "PASSPHRASE_REQUIRED"
+		}
+		return result
 	}
 	var source io.Reader = bytes.NewReader(data)
 	if bytes.HasPrefix(bytes.TrimSpace(data), []byte(armor.Header)) {

@@ -6,15 +6,19 @@ The interface combines an Apple-inspired editorial introduction with a directly 
 
 - Two operation tabs: 「暗号化」「復号」. Each retains its draft in memory.
 - Encryption: content, a file attachment action, the recipient's GitHub name, and one submit button. Recipient lookup and encryption happen in one submission.
-- Decryption: ciphertext or file, the matching private key, its optional password, and one submit button.
+- Decryption: ciphertext/file and the matching private key. After both inputs settle, try decryption automatically. Show the password and submit action only if the private key is protected; a cancelled/failed check has an explicit retry.
 - Header: Fumi, 「すべて消去」 and help. Clear removes inputs, keys and results from both modes.
 - A short privacy caption. Detailed limits, licensing and background live in help.
 
-The short introduction sits beside the tool on desktop and above it on mobile. It does not add a wizard or confirmation step. Keep visible labels even when reducing prose. A debounced GitHub preview shows public name, avatar, login and optional bio. It is advisory: usable keys are checked when encryption runs; failed previews never block submission.
+The short introduction sits beside the tool on desktop and above it on mobile. It has no redundant delivery link. It does not add a wizard or confirmation step. Keep visible labels even when reducing prose. A debounced GitHub preview shows public name, avatar, login and optional bio. Profile information remains advisory; encryption validates the selected keys before use.
 
 ## Progressive disclosure
 
-「詳細設定」 contains manual public-key entry/file import and the format override. Auto is the default. Manual keys replace the GitHub recipient field; the summary shows that this source is active even when collapsed. Relevant errors reopen the disclosure. Explicit formats and partial lookup failures never silently fall back to another format.
+GitHub username is the default recipient field. Check registered GPG/SSH keys after input settles. If neither is registered, reveal a public-key box with the reason and next action. A network failure also offers manual input but never claims that no key is registered. The username remains editable during automatic lookup. An explicit 「公開鍵を直接入力」 action supports recipients without GitHub and offline use.
+
+Manual GPG armor/binary and SSH Ed25519/RSA keys use automatic format detection; there is no extra format selector. Supplying a manual key visibly replaces the GitHub recipient. 「GitHubユーザー名で指定する」 removes the manual key before switching back.
+
+Decryption inputs settle for 600ms before a single local attempt. Protected GPG and SSH keys return the typed `PASSPHRASE_REQUIRED` condition, which reveals the password field with a plain-language explanation. Wrong/malformed keys and damaged ciphertext remain ordinary errors. Password typing does not launch expensive guesses. Changing ciphertext or secret key clears the old password and check; Edit does not resubmit. Cancel, file-read cancellation, clear and mode switches prevent stale jobs from appearing.
 
 Text results display immediately, including ciphertext. 「コピー」 is primary, 「保存」 secondary, and 「編集」 retains the draft. Binary results prioritize Save. Format, filename and CLI commands are in the result's closed 「詳細」. The first 100,000 characters are previewed; Copy and Save use the complete result. A failed clipboard operation selects a complete short preview; a large result directs the user to Save rather than selecting truncated ciphertext.
 

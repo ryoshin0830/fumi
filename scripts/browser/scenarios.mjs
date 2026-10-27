@@ -93,27 +93,32 @@ const finished = () =>
     undefined,
     { timeout: 30000 },
   );
+async function submit() {
+  await page.focus('#run-button');
+  await page.press('#run-button', 'Enter');
+}
 async function clear(mode = 'encrypt') {
   await page.click('#' + mode + '-tab');
   await page.click('#clear-button');
 }
 async function advanced() {
-  if (!(await page.evaluate(() => document.getElementById('advanced-settings').open)))
-    await page.click('#advanced-settings > summary');
+  if (!(await page.evaluate(() => document.getElementById('recipient-text').checkVisibility())))
+    await page.click('#manual-key-button');
 }
 async function encrypt(text = original, recipient = 'receiver') {
   await clear();
   await page.fill('#encrypt-text', text);
   await page.fill('#github-user', recipient);
-  await page.click('#run-button');
+  await submit();
   await finished();
 }
 async function decrypt(cipher, privateKey = secret, password = 'test-recipient-pass') {
   await clear('decrypt');
   await page.fill('#decrypt-text', cipher);
   await page.fill('#secret-text', privateKey);
+  await page.waitForSelector('#passphrase', { state: 'visible' });
   await page.fill('#passphrase', password);
-  await page.click('#run-button');
+  await submit();
   await finished();
 }
 async function shot(name) {
@@ -222,7 +227,7 @@ await clear();
 await page.fill('#encrypt-text', original);
 await page.fill('#github-user', 'https://example.com/receiver');
 const beforeInvalidRecipient = await page.evaluate(() => window.__requests.length);
-await page.click('#run-button');
+await submit();
 await idle();
 assert.equal(await visible('recipient-error'), true);
 assert.equal(await visible('result-panel'), false);
@@ -238,24 +243,24 @@ await advanced();
 await page.fill('#recipient-text', keys.recipient);
 assert.equal(await visible('github-recipient'), false);
 const requestCount = await page.evaluate(() => window.__requests.length);
-await page.click('#run-button');
+await submit();
 await finished();
 assert.equal(await page.evaluate(() => window.__requests.length), requestCount);
 await page.click('#edit-result-button');
 await advanced();
 await page.fill('#recipient-text', 'bad key');
-await page.click('#advanced-settings > summary');
-await page.click('#run-button');
+
+await submit();
 await idle();
 assert.equal(await visible('recipient-error'), true);
-assert.equal(await page.evaluate(() => document.getElementById('advanced-settings').open), true);
+assert.equal(await page.evaluate(() => !document.getElementById('recipient-key-box').hidden), true);
 passed.push(
-  'manual public keys visibly replace GitHub recipients, work offline, and reopen on validation errors',
+  'manual public keys visibly replace GitHub recipients, work offline, and stay visible on validation errors',
 );
 await clear();
 await page.fill('#encrypt-text', randomBytes(120000).toString('base64'));
 await page.fill('#github-user', 'receiver.gpg');
-await page.click('#run-button');
+await submit();
 await finished();
 assert.equal(await visible('preview-hint'), true);
 await page.click('#copy-button');
@@ -294,7 +299,7 @@ await page.evaluate(() => {
 await page.setInputFiles('#encrypt-file', [base + 'payload.bin']);
 await idle();
 await page.fill('#github-user', 'receiver');
-await page.click('#run-button');
+await submit();
 await finished();
 assert.match(await value('result-format'), /age/);
 await page.evaluate(() => {
@@ -316,12 +321,14 @@ await page.setInputFiles('#decrypt-file', [base + 'minimal.age']);
 await idle();
 await page.setInputFiles('#secret-file', [base + 'signer-ssh']);
 await idle();
+await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'wrong');
-await page.click('#run-button');
+await submit();
 await idle();
 assert.equal(await visible('secret-error'), true);
+await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'test-sign-pass');
-await page.click('#run-button');
+await submit();
 await finished();
 const restoredPromise = page.waitForEvent('download', { timeout: 30000 });
 await page.click('#save-button');
@@ -365,13 +372,14 @@ assert.match(
 await clear('decrypt');
 await page.fill('#decrypt-text', await readFile(base + 'legacy-native.asc', 'utf8'));
 await page.fill('#secret-text', secret);
+await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'test-recipient-pass');
 await page.evaluate(() => {
   window.__keyMode = 'delay';
   window.__released = false;
   delete window.__releaseFetch;
 });
-await page.click('#run-button');
+await submit();
 await page.waitForFunction(() => Boolean(window.__releaseFetch), undefined, { timeout: 30000 });
 assert.equal(await visible('result-cancel-button'), true);
 assert.equal(
@@ -396,8 +404,9 @@ for (const name of ['tampered.asc', 'unsupported-native.asc']) {
   await clear('decrypt');
   await page.fill('#decrypt-text', await readFile(base + name, 'utf8'));
   await page.fill('#secret-text', secret);
+  await page.waitForSelector('#passphrase', { state: 'visible' });
   await page.fill('#passphrase', 'test-recipient-pass');
-  await page.click('#run-button');
+  await submit();
   await idle();
   assert.equal(await visible('result-panel'), false);
   assert.equal(
@@ -420,7 +429,7 @@ await page.evaluate(() => {
   window.__released = false;
   delete window.__releaseFetch;
 });
-await page.click('#run-button');
+await submit();
 await page.waitForFunction(() => Boolean(window.__releaseFetch), undefined, { timeout: 30000 });
 await page.click('#cancel-button');
 await page.evaluate(() => window.__releaseFetch());
@@ -434,12 +443,12 @@ await page.evaluate(() => {
   window.__keyMode = 'limit';
 });
 await page.fill('#github-user', 'limited.gpg');
-await page.click('#run-button');
+await submit();
 await idle();
-assert.match(await value('recipient-error'), /取得上限/);
+assert.match(await value('recipient-reason'), /取得できません/);
 await advanced();
 await page.fill('#recipient-text', keys.recipient);
-await page.click('#run-button');
+await submit();
 await finished();
 passed.push(
   'cancelled lookup cannot replace a draft; rate limits remain recoverable by supplying a public key',

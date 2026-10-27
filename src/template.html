@@ -88,9 +88,6 @@
           <div class="cipher-tag"><span class="status-dot"></span>あなたの端末内で暗号化</div>
           <p id="cipher-caption" class="cipher-caption">読むことができるのは、届けたい相手だけ。</p>
         </div>
-        <a class="intro-link" href="#workspace"
-          >メッセージを届ける <svg class="icon" aria-hidden="true"><use href="#arrow" /></svg
-        ></a>
       </section>
       <div class="tool-shell">
         <div class="operation-tabs" role="tablist" aria-label="操作">
@@ -153,12 +150,12 @@
               </section>
               <p id="encrypt-error" class="field-error" role="alert" hidden></p>
               <div id="github-recipient" class="recipient-group">
-                <label for="github-user">宛先</label
+                <label for="github-user">宛先のGitHubユーザー名</label
                 ><input
                   id="github-user"
                   data-1p-ignore
                   type="text"
-                  placeholder="GitHubユーザー名"
+                  placeholder="例：octocat"
                   spellcheck="false"
                   autocapitalize="none"
                   aria-describedby="recipient-error"
@@ -191,11 +188,14 @@
                 </div>
               </div>
               <p id="recipient-error" class="field-error" role="alert" hidden></p>
-              <details id="advanced-settings" class="advanced-settings">
-                <summary id="advanced-label">詳細設定</summary>
+              <button id="manual-key-button" type="button" class="quiet-button manual-key-button">
+                公開鍵を直接入力
+              </button>
+              <section id="recipient-key-box" class="recipient-key-box" hidden>
+                <p id="recipient-reason" class="field-hint"></p>
                 <section class="input-group" data-drop="recipient">
                   <div class="field-toolbar">
-                    <label for="recipient-text">公開鍵</label
+                    <label for="recipient-text">宛先の公開鍵</label
                     ><label class="file-button" for="recipient-file"
                       ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
                       >ファイル<input
@@ -207,7 +207,7 @@
                   <div id="recipient-text-pane">
                     <textarea
                       id="recipient-text"
-                      placeholder="公開鍵を貼り付け"
+                      placeholder="GPGまたはSSHの公開鍵を貼り付け"
                       spellcheck="false"
                       autocapitalize="none"
                       aria-describedby="recipient-error"
@@ -226,13 +226,11 @@
                     </button>
                   </div>
                 </section>
-                <label for="preferred-format">形式</label
-                ><select id="preferred-format">
-                  <option value="auto">自動</option>
-                  <option value="pgp">OpenPGP</option>
-                  <option value="ssh">age</option>
-                </select>
-              </details>
+                <p class="field-hint">GPG・SSHのどちらも使えます。形式は自動で判別します。</p>
+                <button id="github-key-button" type="button" class="quiet-button">
+                  GitHubユーザー名で指定する
+                </button>
+              </section>
             </section>
             <section id="decrypt-panel" role="tabpanel" aria-labelledby="decrypt-tab" hidden>
               <section class="input-group" data-drop="decrypt">
@@ -300,16 +298,20 @@
                   </button>
                 </div>
               </section>
-              <label class="password-label" for="passphrase"
-                >鍵のパスワード <span>必要な場合</span></label
-              ><input
-                id="passphrase"
-                data-1p-ignore
-                type="password"
-                autocomplete="off"
-                spellcheck="false"
-                aria-describedby="secret-error"
-              />
+              <p id="decrypt-status" class="field-hint" role="status" aria-live="polite">
+                暗号文と秘密鍵を入力すると、自動で復号を試します。
+              </p>
+              <div id="password-box" hidden>
+                <label class="password-label" for="passphrase">秘密鍵のパスワード</label>
+                <input
+                  id="passphrase"
+                  data-1p-ignore
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-describedby="decrypt-status secret-error"
+                />
+              </div>
               <p id="secret-error" class="field-error" role="alert" hidden></p>
             </section>
             <p id="operation-error" class="field-error" role="alert" hidden></p>

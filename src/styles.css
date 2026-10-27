@@ -212,18 +212,6 @@ h3 {
   font-size: 17px;
   line-height: 1.9;
 }
-.intro-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 44px;
-  margin-top: 2px;
-  font-size: 14px;
-  text-decoration: none;
-}
-.intro-link .icon {
-  width: 17px;
-}
 .tool-shell {
   min-width: 0;
   padding-top: 22px;
@@ -479,17 +467,22 @@ summary {
 summary:hover {
   color: var(--blue);
 }
-.advanced-settings {
+.manual-key-button {
+  margin-top: 8px;
+  padding-left: 0;
+  font-size: 13px;
+}
+.recipient-key-box {
   margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--soft);
 }
-.advanced-settings > summary {
-  width: fit-content;
+.recipient-key-box > .field-hint {
+  margin-top: 0;
 }
-.advanced-settings[open] {
-  padding-bottom: 8px;
-}
-.advanced-settings > label {
-  margin: 16px 0 8px;
+#github-key-button {
+  padding-left: 0;
+  color: var(--blue);
 }
 #recipient-text {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -497,12 +490,6 @@ summary:hover {
 }
 .password-label {
   margin: 20px 0 8px;
-}
-.password-label > span {
-  margin-left: 6px;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--secondary);
 }
 .field-error,
 .field-hint {
@@ -810,9 +797,6 @@ summary:hover {
   }
 }
 @media (hover: hover) and (pointer: fine) {
-  .intro-link:hover .icon {
-    transform: translateX(3px);
-  }
   .recipient-card:hover {
     border-color: #9fb8d8;
   }
@@ -896,9 +880,6 @@ summary:hover {
   .letter-seal .icon {
     width: 16px;
     height: 16px;
-  }
-  .intro-link {
-    display: none;
   }
   .tool-shell {
     border-radius: 24px;

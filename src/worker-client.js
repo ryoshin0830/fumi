@@ -19,7 +19,9 @@ export function runCrypto(action, payload) {
       const task = pending.get(data.id);
       if (!task) return;
       pending.delete(data.id);
-      data.error ? task.reject(new Error(data.error)) : task.resolve(data.result);
+      data.error
+        ? task.reject(Object.assign(new Error(data.error), { code: data.code }))
+        : task.resolve(data.result);
     };
     worker.onerror = (event) => {
       event.preventDefault();

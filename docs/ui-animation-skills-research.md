@@ -31,7 +31,7 @@
 - CSS transition、CSS animation、Web Animations APIのうち最小の仕組みを選ぶ。動きのためだけのライブラリは不要。
 - 基本のUI変化は160〜250ms、`transform`と`opacity`を中心にする。暗号化を説明する装飾は操作時だけ開始し、終了・中止で止める。
 - `prefers-reduced-motion`では変形や文字シャッフルを抑え、読める処理状態を保つ。装飾文字は読み上げ対象外にする。
-- システムフォント、既存の暗号処理、1回の送信、完全な結果のコピー・保存を維持する。
+- システムフォント、既存の暗号処理、必要な時だけの追加入力、完全な結果のコピー・保存を維持する。
 - UI UX Pro Maxの最初の「premium」検索はファッション向けの書体・金色が強く、Fumiには不適合だった。`utility minimal light`に絞ってMinimalism & Swiss Styleを確認した上で、既存の青とシステムフォントを継承する。
 
 具体的な仕様は[デザイン案](superpowers/specs/2026-10-28-motion-ui-design.md)、実装への適用と確認結果は[検証記録](review/motion-ui-verification.md)にまとめた。

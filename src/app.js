@@ -17,7 +17,11 @@ let mode = 'encrypt';
 let job = 0;
 let busy = false;
 let controller;
-const recipientPreview = createRecipientPreview();
+let manualOpen = false;
+let passwordNeeded = false;
+let decryptChecked = false;
+let decryptTimer;
+const recipientPreview = createRecipientPreview({ onKeyFallback: showManualKey });
 const cipherMotion = createCipherMotion();
 const valueOf = (kind) =>
   drafts[kind].kind === 'file' ? drafts[kind].file?.bytes : $(kind + '-text').value;
@@ -37,15 +41,14 @@ function clearErrors() {
   for (const node of document.querySelectorAll('[aria-invalid]'))
     node.removeAttribute('aria-invalid');
 }
-function errorAt(id, message, input) {
-  if (id === 'recipient-error' && hasValue('recipient')) $('advanced-settings').open = true;
+function errorAt(id, message, input, focus = true) {
   const node = $(id);
   node.textContent = message;
   node.hidden = false;
   node.tabIndex = -1;
   const field = input && !$(input).disabled && $(input).checkVisibility() ? $(input) : node;
   if (input) $(input).setAttribute('aria-invalid', 'true');
-  field.focus();
+  if (focus) field.focus();
   announce(message);
 }
 function updateForm() {
@@ -61,23 +64,39 @@ function updateForm() {
     $(kind + '-file-pane').hidden = !file;
     $(kind + '-file-name').textContent = file ? file.name : '';
   }
-  const manual = hasValue('recipient');
+  const manual = manualOpen && hasValue('recipient');
   $('github-recipient').hidden = manual;
+  $('recipient-key-box').hidden = !manualOpen;
+  $('manual-key-button').hidden = manualOpen;
+  $('github-key-button').textContent =
+    manual || !$('github-user').value.trim()
+      ? 'GitHubユーザー名で指定する'
+      : '別のGitHubユーザー名を入力';
+  $('recipient-status').hidden = manualOpen;
+  $('password-box').hidden = !passwordNeeded;
+  $('decrypt-status').hidden = decryptChecked && !passwordNeeded && !busy;
+  $('decrypt-status').textContent =
+    busy && mode === 'decrypt'
+      ? '復号できるか確認しています…'
+      : passwordNeeded
+        ? 'この秘密鍵にはパスワードが設定されています。入力して復号してください。'
+        : decryptChecked
+          ? '入力を確認して、もう一度試してください。'
+          : '暗号文と秘密鍵を入力すると、自動で復号を試します。';
   recipientPreview.update(
     $('github-user').value,
     mode === 'encrypt' && !manual && !drafts.encrypt.result,
   );
-  $('advanced-label').textContent =
-    '詳細設定' +
-    (manual ? ' · 公開鍵' : '') +
-    ($('preferred-format').value === 'auto'
-      ? ''
-      : ' · ' + ($('preferred-format').value === 'pgp' ? 'OpenPGP' : 'age'));
   $('run-button').disabled =
     busy ||
     !hasValue(mode) ||
-    (mode === 'encrypt' ? !(manual || $('github-user').value.trim()) : !hasValue('secret'));
-  if (!busy) $('run-label').textContent = mode === 'encrypt' ? '暗号化' : '復号';
+    (mode === 'encrypt'
+      ? !(manual || (!manualOpen && $('github-user').value.trim()))
+      : !hasValue('secret') || (passwordNeeded && !$('passphrase').value));
+  $('run-button').hidden = mode === 'decrypt' && !passwordNeeded && !decryptChecked;
+  if (!busy)
+    $('run-label').textContent =
+      mode === 'encrypt' ? '暗号化' : passwordNeeded ? '復号' : 'もう一度確認';
   $('cancel-button').hidden = !busy;
   $('main-form').hidden = Boolean(drafts[mode].result);
   $('workspace').setAttribute('aria-busy', String(busy));
@@ -102,6 +121,8 @@ function setBusy(value, label = '処理中…') {
   updateForm();
 }
 function cancelWork() {
+  clearTimeout(decryptTimer);
+  if (mode === 'decrypt' && hasValue('decrypt') && hasValue('secret')) decryptChecked = true;
   cipherMotion.reset();
   job++;
   controller?.abort();
@@ -120,31 +141,68 @@ function invalidate(which = mode) {
   if (which === mode) renderResult();
   else updateForm();
 }
-async function withJob(label, action, errorId = 'operation-error') {
+async function withJob(label, action, errorId = 'operation-error', automatic = false) {
   if (busy) return;
   clearErrors();
   const id = ++job;
   setBusy(true, label);
+  let promptPassword = false;
   try {
     await action(() => id === job);
   } catch (error) {
     if (id === job && error.name !== 'AbortError') {
       cipherMotion.reset();
-      const target =
-        error.field ||
-        (mode === 'decrypt' && /秘密鍵|パスフレーズ/.test(error.message)
-          ? 'secret-error'
-          : errorId);
-      errorAt(target, error.message, error.input);
+      if (mode === 'decrypt') decryptChecked = true;
+      if (mode === 'decrypt' && error.code === 'PASSPHRASE_REQUIRED') {
+        passwordNeeded = true;
+        promptPassword = true;
+        announce('秘密鍵のパスワードを入力してください。');
+      } else {
+        const target =
+          error.field ||
+          (mode === 'decrypt' && /秘密鍵|パスフレーズ/.test(error.message)
+            ? 'secret-error'
+            : errorId);
+        errorAt(
+          target,
+          error.message.replaceAll('パスフレーズ', 'パスワード'),
+          error.input,
+          !automatic,
+        );
+      }
     }
   } finally {
     if (id === job) setBusy(false);
   }
+  if (promptPassword && id === job) $('passphrase').focus();
+}
+function showManualKey(reason = '相手から受け取った公開鍵を入力してください。') {
+  manualOpen = true;
+  $('recipient-reason').textContent = reason;
+  updateForm();
+}
+function resetDecryptCheck() {
+  clearTimeout(decryptTimer);
+  passwordNeeded = false;
+  decryptChecked = false;
+  $('passphrase').value = '';
+}
+function scheduleDecrypt() {
+  clearTimeout(decryptTimer);
+  if (
+    mode !== 'decrypt' ||
+    busy ||
+    decryptChecked ||
+    drafts.decrypt.result ||
+    !hasValue('decrypt') ||
+    !hasValue('secret')
+  )
+    return;
+  decryptTimer = setTimeout(() => performOperation(true), 600);
 }
 async function resolveRecipient(current) {
-  const manual = hasValue('recipient');
+  const manual = manualOpen && hasValue('recipient');
   try {
-    const preferred = $('preferred-format').value;
     let source, keys;
     if (manual) {
       const value = valueOf('recipient');
@@ -169,17 +227,30 @@ async function resolveRecipient(current) {
       $('run-label').textContent = '鍵を取得中…';
       source = await resolveGitHub($('github-user').value, {
         signal: controller.signal,
-        keyType: preferred === 'auto' ? undefined : preferred,
       });
       if (!current()) return null;
-      if (source.errors.length) throw new Error(source.errors.join(' '));
+      if (source.errors.length) {
+        showManualKey(
+          'GitHubから公開鍵を取得できませんでした。相手から受け取った公開鍵を入力してください。',
+        );
+        return null;
+      }
       keys = await runCrypto('inspect', { pgp: source.pgp, ssh: source.ssh });
     }
     if (!current()) return null;
-    const format =
-      preferred !== 'auto' ? preferred : source?.preferred || (keys.pgp.length ? 'pgp' : 'ssh');
-    if (!keys[format]?.length)
-      throw new Error(keys.messages[0] || '暗号化に使える公開鍵がありません。');
+    const format = source?.preferred || (keys.pgp.length ? 'pgp' : 'ssh');
+    if (!keys[format]?.length) {
+      if (!manual) {
+        showManualKey(
+          'GitHubに使える公開鍵が見つかりませんでした。相手から受け取った公開鍵を入力してください。',
+        );
+        return null;
+      }
+      throw new Error(
+        keys.messages[0] ||
+          '暗号化に使える公開鍵がありません。GPGまたはSSHの公開鍵を確認してください。',
+      );
+    }
     return { format, keys: keys[format].map((key) => key.key), username: source?.username };
   } catch (error) {
     error.field = 'recipient-error';
@@ -220,52 +291,67 @@ async function checkSignature(result, current) {
   updateForm();
   announce($('signature-status-title').textContent);
 }
-$('main-form').addEventListener('submit', (event) => {
-  event.preventDefault();
+function performOperation(automatic = false) {
   if (busy || $('run-button').disabled) return;
+  clearTimeout(decryptTimer);
   const operation = mode;
+  if (operation === 'decrypt') decryptChecked = true;
   invalidate();
   cipherMotion.start(operation);
-  withJob(operation === 'encrypt' ? '暗号化中…' : '復号中…', async (current) => {
-    const value = valueOf(operation);
-    let result;
-    if (operation === 'encrypt') {
-      const recipient = await resolveRecipient(current);
-      if (!recipient || !current()) return;
-      $('run-label').textContent = '暗号化中…';
-      result = await runCrypto('encrypt', {
-        data: typeof value === 'string' ? new TextEncoder().encode(value) : value,
-        recipients: recipient.keys,
-        format: recipient.format,
-        filename: drafts.encrypt.kind === 'file' ? drafts.encrypt.file.name : 'message.txt',
-        armored: drafts.encrypt.kind === 'text',
-      });
-      result.recipient = recipient.username ? '@' + recipient.username : '';
-    } else
-      result = await runCrypto('decrypt', {
-        data: value,
-        privateKey: valueOf('secret'),
-        passphrase: $('passphrase').value,
-        sourceName: drafts.decrypt.file?.name || '',
-      });
-    if (!current()) return;
-    drafts[operation].result = result;
-    renderResult();
-    if (result.verification) await checkSignature(result, current);
-    if (!current()) return;
-    cipherMotion.finish(true);
-    $('result-title').focus({ preventScroll: true });
-    $('workspace').scrollIntoView({ block: 'nearest', behavior: 'instant' });
-    announce(operation === 'encrypt' ? '暗号化しました。' : '復号しました。');
-  });
+  withJob(
+    operation === 'encrypt' ? '暗号化中…' : '復号中…',
+    async (current) => {
+      const value = valueOf(operation);
+      let result;
+      if (operation === 'encrypt') {
+        const recipient = await resolveRecipient(current);
+        if (!recipient || !current()) {
+          cipherMotion.reset();
+          return;
+        }
+        $('run-label').textContent = '暗号化中…';
+        result = await runCrypto('encrypt', {
+          data: typeof value === 'string' ? new TextEncoder().encode(value) : value,
+          recipients: recipient.keys,
+          format: recipient.format,
+          filename: drafts.encrypt.kind === 'file' ? drafts.encrypt.file.name : 'message.txt',
+          armored: drafts.encrypt.kind === 'text',
+        });
+        result.recipient = recipient.username ? '@' + recipient.username : '';
+      } else
+        result = await runCrypto('decrypt', {
+          data: value,
+          privateKey: valueOf('secret'),
+          passphrase: $('passphrase').value,
+          sourceName: drafts.decrypt.file?.name || '',
+        });
+      if (!current()) return;
+      drafts[operation].result = result;
+      renderResult();
+      if (result.verification) await checkSignature(result, current);
+      if (!current()) return;
+      cipherMotion.finish(true);
+      $('result-title').focus({ preventScroll: true });
+      $('workspace').scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      announce(operation === 'encrypt' ? '暗号化しました。' : '復号しました。');
+    },
+    'operation-error',
+    automatic,
+  );
+}
+$('main-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  performOperation();
 });
 function switchMode(next, focus = false) {
   if (next === mode) return;
   cipherMotion.reset();
+  clearTimeout(decryptTimer);
   if (busy) cancelWork();
   mode = next;
   clearErrors();
   renderResult();
+  scheduleDecrypt();
   if (focus) $(mode + '-tab').focus();
 }
 for (const node of document.querySelectorAll('.operation-tabs [data-operation]')) {
@@ -287,13 +373,19 @@ for (const node of document.querySelectorAll('.operation-tabs [data-operation]')
   });
 }
 for (const kind of Object.keys(drafts)) {
-  $(kind + '-text').addEventListener('input', () => invalidate(ownerOf(kind)));
+  $(kind + '-text').addEventListener('input', () => {
+    if (ownerOf(kind) === 'decrypt') resetDecryptCheck();
+    invalidate(ownerOf(kind));
+    scheduleDecrypt();
+  });
   $(kind + '-file').addEventListener('change', (event) => loadFile(kind, event.target.files[0]));
   $(kind + '-file-remove').addEventListener('click', () => {
     drafts[kind].file = null;
     drafts[kind].kind = 'text';
     $(kind + '-file').value = '';
+    if (ownerOf(kind) === 'decrypt') resetDecryptCheck();
     invalidate(ownerOf(kind));
+    scheduleDecrypt();
     $(kind + '-text').focus();
   });
   const drop = document.querySelector(`[data-drop="${kind}"]`);
@@ -333,6 +425,7 @@ async function loadFile(kind, file) {
     $(kind + '-file').value = '';
     return;
   }
+  let loadedJob;
   await withJob(
     '読込中…',
     async (current) => {
@@ -340,16 +433,33 @@ async function loadFile(kind, file) {
       if (!current()) return;
       drafts[kind].file = { bytes, name: file.name };
       drafts[kind].kind = 'file';
+      if (ownerOf(kind) === 'decrypt') resetDecryptCheck();
       invalidate(ownerOf(kind));
+      loadedJob = job;
     },
     errorId,
   );
   $(kind + '-file').value = '';
+  if (loadedJob === job) scheduleDecrypt();
 }
-for (const id of ['github-user', 'passphrase', 'preferred-format'])
-  $(id).addEventListener(id === 'preferred-format' ? 'change' : 'input', () =>
-    invalidate(id === 'passphrase' ? 'decrypt' : 'encrypt'),
-  );
+for (const id of ['github-user', 'passphrase'])
+  $(id).addEventListener('input', () => {
+    if (id === 'github-user') manualOpen = false;
+    invalidate(id === 'passphrase' ? 'decrypt' : 'encrypt');
+  });
+$('manual-key-button').addEventListener('click', () => {
+  showManualKey();
+  $('recipient-text').focus();
+});
+$('github-key-button').addEventListener('click', () => {
+  drafts.recipient = { kind: 'text', file: null, result: null };
+  $('recipient-text').value = '';
+  $('recipient-file').value = '';
+  $('github-user').value = '';
+  manualOpen = false;
+  invalidate('encrypt');
+  $('github-user').focus();
+});
 $('main-form').addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !busy) {
     event.preventDefault();
@@ -413,6 +523,8 @@ $('save-button').addEventListener('click', () => {
 $('clear-button').addEventListener('click', () => {
   cancelWork();
   recipientPreview.reset();
+  manualOpen = false;
+  resetDecryptCheck();
   clearGitHubKeyCache();
   for (const kind of Object.keys(drafts)) {
     drafts[kind] = { kind: 'text', file: null, result: null };
@@ -421,8 +533,6 @@ $('clear-button').addEventListener('click', () => {
   }
   $('github-user').value = '';
   $('passphrase').value = '';
-  $('preferred-format').value = 'auto';
-  $('advanced-settings').open = false;
   clearErrors();
   renderResult();
   $(mode + '-text').focus();

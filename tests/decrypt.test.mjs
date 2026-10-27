@@ -76,7 +76,7 @@ test('supports an unprotected key and an empty plaintext', async () => {
 test('reports a missing or incorrect passphrase', async () => {
   await assert.rejects(
     decryptPayload({ privateKey: protectedKey.privateKey, ciphertext: armored }),
-    /パスフレーズ/,
+    { code: 'PASSPHRASE_REQUIRED' },
   );
   await assert.rejects(
     decryptPayload({

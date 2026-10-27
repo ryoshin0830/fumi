@@ -1,8 +1,8 @@
 import { $ } from './dom.js';
-import { parseGitHub, usesKeyServer } from '../recipients.js';
+import { parseGitHub, usesKeyServer, resolveGitHub } from '../recipients.js';
 import { loadGitHubProfile } from '../profiles.js';
 
-export function createRecipientPreview() {
+export function createRecipientPreview({ onKeyFallback } = {}) {
   let username = '';
   let timer;
   let controller;
@@ -39,13 +39,17 @@ export function createRecipientPreview() {
     reset();
     username = next;
     $('recipient-preview').hidden = false;
-    $('recipient-status').textContent = 'GitHubプロフィールを確認中…';
+    $('recipient-status').textContent = '宛先と公開鍵を確認中…';
     timer = setTimeout(async () => {
       const request = new AbortController();
       controller = request;
-      try {
-        const profile = await loadGitHubProfile(next, { signal: request.signal });
-        if (request.signal.aborted || username !== next) return;
+      const [person, keys] = await Promise.allSettled([
+        loadGitHubProfile(next, { signal: request.signal }),
+        resolveGitHub(input, { signal: request.signal }),
+      ]);
+      if (request.signal.aborted || username !== next) return;
+      if (person.status === 'fulfilled') {
+        const profile = person.value;
         $('recipient-name').textContent = profile.name;
         $('recipient-login').textContent = '@' + profile.login;
         $('recipient-bio').textContent = profile.bio;
@@ -57,13 +61,22 @@ export function createRecipientPreview() {
           avatar.src = '/api/github-avatar/' + profile.id;
         }
         $('recipient-card').hidden = false;
+      }
+      if (keys.status === 'rejected' || keys.value.errors.length) {
+        const reason =
+          'GitHubから公開鍵を取得できませんでした。相手から受け取った公開鍵を入力することもできます。';
+        $('recipient-status').textContent = reason;
+        onKeyFallback?.(reason);
+      } else if (!keys.value.pgp.length && !keys.value.ssh.length) {
+        const reason =
+          'GitHubに公開鍵が登録されていません。相手から受け取った公開鍵を入力してください。';
+        $('recipient-status').textContent = '';
+        onKeyFallback?.(reason);
+      } else {
         $('recipient-status').textContent =
-          '公開プロフィールです。暗号化に使う鍵は実行時に確認します。';
-      } catch (error) {
-        if (request.signal.aborted || username !== next) return;
-        $('recipient-status').textContent = /見つかりません|制限|取得できません/.test(error.message)
-          ? error.message
-          : 'プロフィールを表示できません。暗号化はそのまま試せます。';
+          person.status === 'fulfilled'
+            ? 'GitHubに登録された公開鍵を使います。'
+            : 'プロフィールは表示できませんが、GitHubの公開鍵を使えます。';
       }
     }, 450);
   }

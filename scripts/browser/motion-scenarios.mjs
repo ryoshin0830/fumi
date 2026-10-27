@@ -1,6 +1,15 @@
 const task = await taskSpace(__FUMI_TASK__);
 const page = task.page('p1');
 const assert = (await import('node:assert/strict')).default;
+const { readFile } = await import('node:fs/promises');
+const publicKey = await readFile(
+  __FUMI_ROOT__ + 'test-results/signatures/recipient-public.asc',
+  'utf8',
+);
+const secretKey = await readFile(
+  __FUMI_ROOT__ + 'test-results/signatures/recipient-secret.asc',
+  'utf8',
+);
 await page.cdp('Emulation.setDeviceMetricsOverride', {
   width: 1440,
   height: 900,
@@ -13,10 +22,14 @@ assert.equal(
   true,
   'recipient preview exists',
 );
-await page.evaluate(() => {
+await page.evaluate((publicKey) => {
   window.__profiles = [];
   window.fetch = (url, options) => {
     window.__profiles.push({ url: String(url), signal: options.signal });
+    if (String(url).includes('/github-keys/'))
+      return Promise.resolve(
+        Response.json(String(url).includes('type=pgp') ? [{ raw_key: publicKey }] : []),
+      );
     if (String(url).endsWith('/slow'))
       return new Promise((resolve) => {
         window.__oldProfile = () =>
@@ -29,7 +42,7 @@ await page.evaluate(() => {
       Response.json({ id: 1, login, name: 'The Octocat', bio: '<script>unsafe()</script>' }),
     );
   };
-});
+}, publicKey);
 await page.fill('#github-user', 'slow');
 await page.waitForFunction(() => Boolean(window.__oldProfile));
 await page.fill('#github-user', 'octocat');
@@ -53,12 +66,12 @@ assert.equal(
 await page.fill('#encrypt-text', 'A private message');
 await page.fill('#github-user', 'missing');
 await page.waitForFunction(() =>
-  document.getElementById('recipient-status').textContent.includes('見つかりません'),
+  document.getElementById('recipient-status').textContent.includes('プロフィールは表示できません'),
 );
 assert.equal(await page.evaluate(() => document.getElementById('run-button').disabled), false);
 await page.fill('#github-user', 'limited');
 await page.waitForFunction(() =>
-  document.getElementById('recipient-status').textContent.includes('制限'),
+  document.getElementById('recipient-status').textContent.includes('プロフィールは表示できません'),
 );
 assert.equal(await page.evaluate(() => document.getElementById('run-button').disabled), false);
 await page.fill('#github-user', 'octocat');
@@ -67,7 +80,7 @@ await page.waitForFunction(
     document.getElementById('recipient-name').textContent === 'The Octocat' &&
     !document.getElementById('recipient-card').hidden,
 );
-await page.click('#advanced-settings > summary');
+await page.click('#manual-key-button');
 await page.fill('#recipient-text', 'manual-public-key');
 assert.equal(await page.evaluate(() => document.getElementById('recipient-preview').hidden), true);
 await page.fill('#recipient-text', '');
@@ -94,15 +107,6 @@ assert.equal(
 await page.cdp('Emulation.setEmulatedMedia', { features: [] });
 await page.click('#encrypt-tab');
 await page.click('#clear-button');
-const { readFile } = await import('node:fs/promises');
-const publicKey = await readFile(
-  __FUMI_ROOT__ + 'test-results/signatures/recipient-public.asc',
-  'utf8',
-);
-const secretKey = await readFile(
-  __FUMI_ROOT__ + 'test-results/signatures/recipient-secret.asc',
-  'utf8',
-);
 await page.evaluate(() => {
   const previousFetch = window.fetch;
   window.fetch = (url, options) =>
@@ -161,7 +165,7 @@ for (const [name, button] of [
   await page.click('#clear-button');
 }
 await page.fill('#encrypt-text', 'A real encrypted message');
-await page.click('#advanced-settings > summary');
+await page.click('#manual-key-button');
 await page.fill('#recipient-text', 'invalid public key');
 await page.click('#run-button');
 await idle();
@@ -186,6 +190,7 @@ assert.match(cipher, /^-----BEGIN PGP MESSAGE-----/);
 await page.click('#decrypt-tab');
 await page.fill('#decrypt-text', cipher);
 await page.fill('#secret-text', secretKey);
+await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'test-recipient-pass');
 await page.click('#run-button');
 await page.waitForFunction(() => !document.getElementById('result-panel').hidden);

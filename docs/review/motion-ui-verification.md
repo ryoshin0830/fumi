@@ -5,7 +5,7 @@ Verified 2026-10-28 on Node.js 24.15.0, Next.js 16.4.3 and Go 1.27.3. The existi
 ## Automated checks
 
 - `npm run format:check`: passed.
-- `npm run build`: production build passed, including the two new dynamic profile/avatar routes. Web HTML is approximately 86 KiB; standalone HTML is 9.56 MiB. No new runtime dependencies.
+- `npm run build`: production build passed, including the two new dynamic profile/avatar routes. Web HTML is approximately 88 KiB; standalone HTML is 9.56 MiB. No new runtime dependencies.
 - `GO=/private/tmp/dgpg-go-toolchain/go/bin/go npm test`: 184 tests passed, none skipped. Includes profile transport boundaries, streamed byte limits, abort/timeout handling, avatar content types, motion frame cleanup/reduced motion and both generated CSPs.
 - `GO=/private/tmp/dgpg-go-toolchain/go/bin/go npm run test:cli`: all 12 compatibility cases passed, including six signed archives and six direct original outputs.
 - `FUMI_URL=http://127.0.0.1:3100/ FUMI_TASK=18 npm run test:browser`: all nine scenario groups passed. Covers GPG/age text and binary files, exact round trips, complete Copy/Save, denied clipboard, manual keys, retained drafts, cancellation, old signatures, mismatched/offline/retry states and tampered data. No JavaScript or CSP errors; captured application requests used only allowed GET endpoints without bodies.
@@ -34,3 +34,15 @@ Physical Safari/iPhone testing was not performed. GitHub public-profile API limi
 ## Delivery
 
 [PR #2](https://github.com/ryoshin0830/fumi/pull/2) is open against main, with screenshots and validation in the description. The production server is running at http://127.0.0.1:3100/ using `npx next start --hostname 127.0.0.1 --port 3100`. The worktree and review browser tab are preserved.
+
+## Progressive-disclosure correction
+
+The follow-up removes the delivery link and format selector. GitHub is the default recipient; absent registered keys or a failed lookup reveal a contextual GPG/SSH public-key box. The username remains editable, and returning from a manual key removes that key and starts a fresh username entry.
+
+Decryption initially shows only ciphertext and private key. A settled pair starts one local attempt. Unprotected GPG/SSH keys decrypt without a password step; the typed protected-key condition reveals the password field. Wrong keys, invalid ciphertext and wrong passwords remain separate error paths. Edit does not resubmit, and cancelled file reads cannot start a late decryption. Cancellation leaves an explicit retry action.
+
+Reverified production build, formatting, all 184 unit tests and 12 CLI cases. Updated the existing browser regression to the new flow; all nine groups passed with no JavaScript/CSP errors. The motion suite passed, and `npm run test:disclosure` passed against development and production with protected/unprotected GPG and SSH, wrong passwords/keys, manual-source reset, and a delayed cancelled file read. Long legacy-signature regressions use native keyboard submission; the disclosure suite verifies pointer submission too.
+
+An independent review found the late file-read continuation issue. Its job guard and a browser regression address that issue; no other material findings remained. The SSH WASM was rebuilt using the existing matching Go 1.27.3 toolchain to preserve the typed password condition across the bridge.
+
+Visually inspected [initial decryption](progressive-decrypt.png), [conditional password](progressive-password.png) and [missing-key fallback](progressive-manual-key.png), and refreshed the prior desktop/mobile/result screenshots. A real `octocat` lookup returned no GPG or SSH keys and revealed the fallback without hiding username entry.
