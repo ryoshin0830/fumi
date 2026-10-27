@@ -25,7 +25,7 @@
 - [x] Make results and signature explanations progressive while preserving pending/error/retry behavior.
 - [x] Update the design-system document, README and browser regression script to exercise the actual guided flow.
 - [x] Verify formatting, production build, full automated tests, keyboard/mobile behavior, real browser crypto and signature flows; perform independent review.
-- [ ] Merge verified changes to main, deploy through the existing Vercel Git integration, verify the public build/API/crypto and final CI.
+- [x] Merge verified changes to main, deploy through the existing Vercel Git integration, verify the public build/API/crypto and final CI.
 
 ## Validation
 
@@ -56,3 +56,11 @@ UI UX Pro Max search verified form-label, submit-feedback and focus guidance. It
 - 375/768/1024/1440px layouts have no horizontal overflow. Final initial-view checks confirm later fields stay hidden and the continuation button is visible at375×844 and1440×1000.
 - Final mobile review shortened the opening tab to 「受け取って開く」 and removed redundant introductory instructions. Signature warnings and recipient opening requirements remain directly visible when relevant.
 - Browser evidence stays in ignored test-results/; no private fixture material is published.
+
+## Published verification
+
+- Version2.5.0 is deployed at https://fumi-delta.vercel.app/?v=2.5.0 through the main-branch Vercel integration.
+- Public HTTPS HTML is byte-for-byte equal to the local verified web build; CSP hashes match. Both live .gpg/.keys endpoints return registered keys.
+- Public browser check completed the guided recipient lookup, age encryption and trial encryption/decryption. Only one username-bearing public-key GET was sent; no JavaScript or CSP errors occurred.
+- Production mobile initial view fits375px without horizontal overflow and keeps the continuation button inside844px height.
+- GitHub Actions passed for the UI release commit.
