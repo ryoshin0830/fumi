@@ -1,6 +1,6 @@
 # Fumi: expressive, private by design
 
-Status: proposed for user review before implementation.
+Status: implementation direction accepted by the user's instruction to continue toward the PR and running local application.
 
 ## Direction and alternatives
 
@@ -22,7 +22,7 @@ Alternative: a long product landing page with scroll chapters. It offers more st
 - On an actual encryption submission, show a bounded decorative text-to-cipher transformation with a lock/seal motif and a clear live processing label. Use a fixed illustrative phrase rather than cloning message contents into decorative DOM.
 - Start real work immediately. Do not manufacture progress percentages or add a timer that delays a ready result. Keep cancellation available. A failure restores the editable input and existing inline error.
 - Reveal the genuine result with a short transition and completion feedback. Decryption uses the inverse visual language where appropriate.
-- Decorative scrambled text is hidden from assistive technology. Honor `prefers-reduced-motion` in CSS and JavaScript, cancel active frames/timers when work is cancelled, cleared, completed, or the operation changes, and leave the readable final state available immediately.
+- Decorative scrambled text is hidden from assistive technology. Honor `prefers-reduced-motion` in CSS and JavaScript, cancel active frames/timers when work is cancelled, cleared, or the operation changes. A successful quick operation may finish its bounded illustration alongside the already available result; no animation may block result access.
 
 ## GitHub recipient preview
 
