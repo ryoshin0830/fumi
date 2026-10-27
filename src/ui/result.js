@@ -6,17 +6,25 @@ export function renderResultView(result, mode) {
   $('copy-label').textContent = 'コピー';
   if (!result) return;
   const encrypt = mode === 'encrypt';
+  $('copy-label').textContent = encrypt ? '暗号文をコピー' : '内容をコピー';
+  $('result-handoff').hidden = !encrypt;
   const bundled = result.encoding === 'signed-zip';
   const native = result.encoding === 'native-pgp';
   $('result-preview-disclosure').hidden = result.text === null;
   $('result-preview-disclosure').open = !encrypt;
   $('result-preview-label').textContent = encrypt ? '暗号文を表示' : '元のテキスト';
-  $('result-title').textContent = encrypt ? '暗号化できました' : '元のデータに戻せました';
+  $('result-title').textContent = encrypt ? '渡す準備ができました' : '元の内容を開けました';
   $('result-description').textContent = encrypt
-    ? '暗号化したデータを保存・コピーして、相手に渡してください。'
+    ? result.text === null
+      ? 'ファイルを保存して、相手に渡せます。'
+      : 'ファイルを保存するか、暗号文をコピーして渡せます。'
     : result.text === null
       ? 'ファイルを保存して内容を確認できます。'
       : 'テキストを表示しています。';
+  $('delivery-instruction').textContent =
+    result.text === null
+      ? '保存したファイルを、メールやチャットで送ってください。'
+      : '保存したファイルやコピーした文章を、メールやチャットで送ってください。';
   $('result-format').textContent = formatLabel(result.format);
   $('result-filename').textContent = result.filename;
   $('result-size').textContent =
@@ -53,5 +61,4 @@ export function renderResultView(result, mode) {
       ? `age -d -i ~/.ssh/id_ed25519 -o ${quote('./' + output)} ${quote('./' + result.filename)}`
       : `gpg --output ${quote('./' + output)} --decrypt ${quote('./' + result.filename)}`;
   $('cli-command').textContent = command + (bundled ? `\nunzip -n ${quote('./' + output)}` : '');
-  $('try-decrypt-button').hidden = !encrypt || !result.demoKey;
 }

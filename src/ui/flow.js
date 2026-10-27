@@ -1,25 +1,26 @@
 import { $ } from './dom.js';
 
 const labels = {
-  encrypt: ['内容', '相手', '確認'],
-  decrypt: ['受け取ったデータ', 'あなたの鍵'],
+  encrypt: ['内容を用意', '相手を選ぶ', '確認・作成'],
+  decrypt: ['受け取ったもの', '自分の鍵で開く'],
 };
 const headings = {
   encrypt: [
-    ['何を渡しますか？', 'まずは、相手に渡したいメッセージやファイルを用意します。'],
-    ['誰に渡しますか？', '相手の公開鍵を使って、その人が開けるデータを作ります。'],
-    ['確認して、暗号化', '作成したデータは、保存・コピーして相手に渡せます。'],
+    ['何を届けますか？', '文章を書くか、ファイルを選びます。'],
+    ['誰に届けますか？', '受け取る相手に合わせて、鍵をかける準備をします。'],
+    ['内容を確認しましょう', '作成したあと、保存・コピーして相手に渡せます。'],
   ],
   decrypt: [
-    ['受け取ったデータを入れる', '暗号文を貼り付けるか、受け取ったファイルを選びます。'],
-    ['あなたの鍵で開く', '対応する秘密鍵を使って、元の内容を取り出します。'],
+    ['受け取ったものを用意しましょう', '届いた文章を貼り付けるか、ファイルを選びます。'],
+    ['自分の鍵で、開きましょう', 'このデータに対応する秘密鍵で、元の内容を取り出します。'],
   ],
 };
 
-export function renderFlow({ mode, state, busy, result, summaries, hint }) {
+export function renderFlow({ mode, state, busy, result, summaries, hint, sampleAvailable }) {
   $('main-form').hidden = Boolean(result);
   $('workspace-heading').hidden = Boolean(result);
   $('flow-progress').hidden = Boolean(result);
+  $('sample-invitation').hidden = busy || Boolean(result) || !sampleAvailable;
   $('flow-progress').style.setProperty('--steps', state.count);
   const [title, description] = headings[mode][state.step];
   $('operation-title').textContent = title;
@@ -44,7 +45,7 @@ export function renderFlow({ mode, state, busy, result, summaries, hint }) {
   $('next-button').disabled = busy || !state.canNext;
   $('next-label').textContent =
     mode === 'encrypt' && state.step === 0
-      ? '渡す相手を選ぶ'
+      ? '次へ：相手を選ぶ'
       : mode === 'encrypt'
         ? '内容を確認する'
         : '自分の鍵を用意する';

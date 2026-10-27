@@ -60,8 +60,7 @@ await page.evaluate((keys) => {
   };
 }, publicKeys);
 const value = (id) => page.evaluate((id) => document.getElementById(id).textContent, id);
-const visible = (id) =>
-  page.evaluate((id) => Boolean(document.getElementById(id).getClientRects().length), id);
+const visible = (id) => page.evaluate((id) => document.getElementById(id).checkVisibility(), id);
 const stage = () =>
   page.evaluate(() =>
     Number(document.querySelector('[data-go-step][aria-current="step"]').dataset.goStep),
@@ -102,6 +101,8 @@ async function manualRecipient() {
   await page.click('#next-button');
 }
 async function signing(type = 'pgp') {
+  if (!(await page.evaluate(() => document.getElementById('additional-options').open)))
+    await page.click('#additional-options > summary');
   await page.click('#include-signature');
   await page.fill('#signer-github', type === 'pgp' ? 'alice-pgp' : 'alice-ssh');
   await page.fill('#signer-text', type === 'pgp' ? signerPGP : signerSSH);
@@ -114,10 +115,14 @@ async function decrypt(cipher, key = receiver, pass = 'test-recipient-pass') {
   await page.click('#run-button');
   await finished();
 }
-for (const width of [375, 1440]) {
+for (const { width, height } of [
+  { width: 375, height: 844 },
+  { width: 1440, height: 714 },
+  { width: 1440, height: 1000 },
+]) {
   await page.cdp('Emulation.setDeviceMetricsOverride', {
     width,
-    height: width === 375 ? 844 : 1000,
+    height,
     deviceScaleFactor: 1,
     mobile: width === 375,
   });
@@ -126,16 +131,25 @@ for (const width of [375, 1440]) {
       () => document.getElementById('next-button').getBoundingClientRect().bottom <= innerHeight,
     ),
     true,
+    `The first action must fit at ${width}×${height}`,
   );
+  await shot(`approachable-initial-${width}x${height}`);
 }
 assert.equal(await stage(), 0);
 assert.equal(await visible('github-user'), false);
 assert.equal(await visible('include-signature'), false);
 assert.equal(await visible('secret-text'), false);
 assert.equal(await page.evaluate(() => document.getElementById('next-button').disabled), true);
+assert.equal(await visible('flow-hint'), true);
+assert.match(await value('flow-hint'), /入力|ファイル/);
+assert.equal(await visible('sample-invitation'), true);
 await page.fill('#encrypt-text', '   ');
 assert.equal(await page.evaluate(() => document.getElementById('next-button').disabled), true);
 await page.fill('#encrypt-text', original);
+assert.equal(await visible('sample-invitation'), false);
+await page.evaluate(() => document.getElementById('demo-button').click());
+await idle();
+assert.equal(await page.evaluate(() => document.getElementById('encrypt-text').value), original);
 await page.press('#encrypt-text', 'ControlOrMeta+Enter');
 assert.equal(await stage(), 1);
 assert.equal(await page.evaluate(() => document.activeElement.id), 'operation-title');
@@ -163,16 +177,30 @@ assert.equal(
 );
 assert.equal(await visible('signer-text'), false);
 assert.equal(await page.evaluate(() => document.getElementById('signer-text').disabled), true);
+assert.equal(await visible('include-signature'), false);
+assert.equal(await page.evaluate(() => document.getElementById('additional-options').open), false);
 assert.match(await value('review-content'), /新しい画面/);
 assert.match(await value('review-opening'), /GPG/);
+await page.click('[data-edit-step="0"]');
+assert.equal(await stage(), 0);
+assert.equal(await page.evaluate(() => document.getElementById('encrypt-text').value), original);
+await page.click('#next-button');
+await page.click('#next-button');
+await page.click('[data-edit-step="1"]');
+assert.equal(await stage(), 1);
+assert.equal(await visible('recipient-card'), true);
+await page.click('#next-button');
 passed.push(
-  'first view hides later tasks; whitespace/invalid data cannot advance; keyboard next, back and per-mode drafts work',
+  'empty-state guidance is visible; samples cannot overwrite drafts; later controls stay hidden; keyboard navigation, review edits and per-mode drafts work',
 );
 await signing();
 await page.fill('#signer-passphrase', 'wrong');
+await page.click('#additional-options > summary');
 await page.click('#run-button');
 await idle();
 assert.equal(await visible('signer-error'), true);
+assert.equal(await page.evaluate(() => document.getElementById('additional-options').open), true);
+assert.equal(await page.evaluate(() => document.activeElement.id), 'signer-error');
 assert.match(await value('signer-error'), /パスフレーズ/);
 assert.equal(await stage(), 2);
 await page.fill('#signer-passphrase', 'test-sign-pass');
@@ -185,6 +213,10 @@ assert.equal(
   false,
 );
 assert.equal(await page.evaluate(() => document.getElementById('result-details').open), false);
+assert.equal(await visible('result-handoff'), true);
+assert.match(await value('result-handoff'), /メールやチャット/);
+assert.match(await value('result-handoff'), /秘密鍵/);
+assert.match(await value('result-title'), /渡す準備/);
 const ciphertextPGP = await value('result-text');
 assert.equal(await value('result-filename'), 'message.txt.asc');
 await page.evaluate(() =>
@@ -216,6 +248,7 @@ passed.push(
   'optional signature fields appear on request; errors stay visible; result hides inputs and encrypted preview; denied clipboard opens manual-copy fallback; editing preserves inputs',
 );
 await decrypt(ciphertextPGP);
+assert.equal(await visible('result-handoff'), false);
 assert.match(await signature(), /verified/);
 assert.equal(await value('result-text'), original);
 assert.equal(
@@ -277,6 +310,9 @@ assert.match(await value('review-opening'), /GPGでは開けません/);
 await signing();
 await page.click('#run-button');
 await finished();
+assert.equal(await visible('copy-button'), false);
+assert.doesNotMatch(await value('result-description'), /コピー/);
+assert.doesNotMatch(await value('delivery-instruction'), /コピー/);
 const agePromise = page.waitForEvent('download', { timeout: 30000 });
 await page.click('#save-button');
 const ageDownload = await agePromise;
@@ -358,6 +394,7 @@ assert.match(await signature(), /unavailable/);
 await page.evaluate(() => {
   window.__keyMode = 'match';
 });
+await page.click('#privacy-options > summary');
 await page.click('#clear-all-button');
 await page.click('#encrypt-tab');
 assert.equal(await stage(), 0);
@@ -369,14 +406,31 @@ assert.equal(
   ),
   true,
 );
+await decrypt(ciphertextPGP);
+await reset('encrypt');
 await page.click('#demo-button');
 await idle();
 assert.equal(await stage(), 2);
+assert.equal(await page.evaluate(() => document.activeElement.id), 'operation-title');
 await page.click('#run-button');
 await finished();
 assert.equal(await page.evaluate(() => document.getElementById('signature-status').hidden), true);
+assert.equal(await visible('try-decrypt-button'), false);
+assert.equal(await visible('sample-decrypt-hint'), true);
+await page.evaluate(() => document.getElementById('try-decrypt-button').click());
+await page.click('#decrypt-tab');
+assert.equal(await value('result-text'), original);
+assert.equal(await page.evaluate(() => document.getElementById('secret-text').value), receiver);
+assert.equal(
+  await page.evaluate(() => document.getElementById('passphrase').value),
+  'test-recipient-pass',
+);
+await page.click('#clear-button');
+await page.click('#encrypt-tab');
+assert.equal(await visible('try-decrypt-button'), true);
 await page.click('#try-decrypt-button');
 assert.equal(await stage(), 1);
+assert.equal(await page.evaluate(() => document.activeElement.id), 'operation-title');
 await page.click('#run-button');
 await finished();
 assert.match(await value('result-text'), /Fumiへようこそ/);
@@ -387,14 +441,15 @@ await reset('encrypt');
 await page.click('[data-input="encrypt"][data-kind="file"]');
 await page.setInputFiles('#encrypt-file', [base + 'payload.bin']);
 await idle();
-await page.click('#demo-button');
+assert.equal(await visible('sample-invitation'), false);
+await page.evaluate(() => document.getElementById('demo-button').click());
 await idle();
-await page.click('[data-go-step="0"]');
-await page.click('[data-input="encrypt"][data-kind="file"]');
+assert.equal(await stage(), 0);
+assert.match(await value('encrypt-file-name'), /payload.bin/);
 assert.equal(await page.evaluate(() => document.getElementById('recipient-card').hidden), true);
 assert.equal(await page.evaluate(() => document.getElementById('run-button').disabled), true);
 passed.push(
-  'returning to a real file after the trial removes the disposable recipient instead of using it silently',
+  'sample activation is unavailable for a selected file and cannot replace its draft or assign a disposable recipient',
 );
 await content('encrypt', 'layout and recovery');
 await manualRecipient();

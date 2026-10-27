@@ -1,6 +1,6 @@
 # Fumi: a calmer first-time experience
 
-Status: implementation authorized by the user's follow-up instruction to finish the changes, run locally, and open Chrome. Final merge review remains separate.
+Status: implemented. The local preview and pull request are the review boundary before any merge to main.
 
 ## Goal and review boundary
 
@@ -70,7 +70,7 @@ Encrypted previews, format names, fingerprints, and CLI commands are secondary d
 
 ### Trial and clearing
 
-Label the trial action 「サンプルで体験」 and explain that it supplies sample content and keys. Offer it on an empty first step so it cannot silently replace a nonempty draft. Retain the existing real sample encryption/decryption rather than inventing a fake success state.
+Label the trial action 「サンプルで体験」 and explain that it supplies sample content and keys. Offer it on an empty first step so it cannot silently replace a nonempty draft. The sample-opening shortcut also preserves any existing decryption draft, key, password, and result; explain when those inputs need to be cleared before continuing the trial. Retain the existing real sample encryption/decryption rather than inventing a fake success state.
 
 Keep restarting the current task as a secondary action. Move clearing both operations and technical background to a clearly labeled secondary disclosure, preserving both capabilities and their cancellation semantics.
 
