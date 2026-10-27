@@ -39,7 +39,7 @@ export function createRecipientPreview({ onKeyFallback } = {}) {
     reset();
     username = next;
     $('recipient-preview').hidden = false;
-    $('recipient-status').textContent = '宛先と公開鍵を確認中…';
+    $('recipient-status').textContent = '宛先を確認中…';
     timer = setTimeout(async () => {
       const request = new AbortController();
       controller = request;
@@ -63,19 +63,17 @@ export function createRecipientPreview({ onKeyFallback } = {}) {
         $('recipient-card').hidden = false;
       }
       if (keys.status === 'rejected' || keys.value.errors.length) {
-        const reason =
-          'GitHubから公開鍵を取得できませんでした。相手から受け取った公開鍵を入力することもできます。';
+        const reason = '公開鍵を取得できませんでした。相手の公開鍵を入力できます。';
         $('recipient-status').textContent = reason;
         onKeyFallback?.(reason);
       } else if (!keys.value.pgp.length && !keys.value.ssh.length) {
-        const reason =
-          'GitHubに公開鍵が登録されていません。相手から受け取った公開鍵を入力してください。';
+        const reason = '公開鍵が登録されていません。相手の公開鍵を入力してください。';
         $('recipient-status').textContent = '';
         onKeyFallback?.(reason);
       } else {
         $('recipient-status').textContent =
           person.status === 'fulfilled'
-            ? 'GitHubに登録された公開鍵を使います。'
+            ? ''
             : 'プロフィールは表示できませんが、GitHubの公開鍵を使えます。';
       }
     }, 450);

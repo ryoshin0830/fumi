@@ -48,9 +48,7 @@ async function clear(mode) {
   await page.click('#clear-button');
 }
 await page.fill('#github-user', 'receiver');
-await page.waitForFunction(() =>
-  document.getElementById('recipient-status').textContent.includes('公開鍵'),
-);
+await page.waitForFunction(() => !document.getElementById('recipient-card').hidden);
 assert.equal(
   await page.evaluate(() => document.getElementById('recipient-text').checkVisibility()),
   false,

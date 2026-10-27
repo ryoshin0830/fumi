@@ -1,13 +1,19 @@
-import { $, size, formatLabel } from './dom.js';
+import { $, size } from './dom.js';
 export function renderResultView(result, mode) {
   $('result-panel').hidden = !result;
   $('result-text').textContent = '';
   $('copy-label').textContent = 'コピー';
+  $('delivery-guide').hidden = !result || mode !== 'encrypt';
+  $('result-panel').dataset.operation = mode;
   if (!result) return;
   const text = result.text !== null;
-  $('result-title').textContent = mode === 'encrypt' ? '暗号文' : '復号結果';
-  $('result-target').textContent = result.recipient || '';
-  $('result-target').hidden = !result.recipient;
+  $('result-title').textContent = mode === 'encrypt' ? '暗号文' : '復号した内容';
+  $('delivery-title').textContent = result.recipient
+    ? result.recipient + ' の秘密鍵でのみ開けます。'
+    : '指定した公開鍵に対応する秘密鍵で開けます。';
+  $('delivery-note').textContent = text
+    ? '暗号文をコピーして、メールやSNSで送ってください。'
+    : '保存したファイルを、メールやSNSで送ってください。';
   $('result-file').hidden = text;
   $('result-filename').textContent = result.filename;
   $('result-size').textContent = size(result.bytes.length);
@@ -17,12 +23,4 @@ export function renderResultView(result, mode) {
   $('preview-hint').textContent = '先頭100,000文字を表示しています。全文はコピー・保存できます。';
   $('copy-button').hidden = !text;
   $('save-button').className = text ? 'secondary-button' : 'primary-button';
-  $('result-details').open = false;
-  $('result-format').textContent = formatLabel(result.format) + ' / ' + result.filename;
-  $('cli-help').hidden = mode !== 'encrypt';
-  const quote = (text) => "'" + text.replace(/'/g, "'\\''") + "'";
-  $('cli-command').textContent =
-    result.format === 'ssh'
-      ? `age -d -i ~/.ssh/id_ed25519 -o restored ${quote('./' + result.filename)}`
-      : `gpg --output restored --decrypt ${quote('./' + result.filename)}`;
 }

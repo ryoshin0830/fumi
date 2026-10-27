@@ -164,7 +164,7 @@ assert.equal(
   true,
 );
 assert.equal(await visible('result-file'), false);
-assert.equal(await page.evaluate(() => document.getElementById('result-details').open), false);
+assert.equal(await page.evaluate(() => document.getElementById('result-details')), null);
 await shot('ciphertext');
 await page.evaluate(() =>
   Object.defineProperty(navigator, 'clipboard', {
@@ -301,7 +301,7 @@ await idle();
 await page.fill('#github-user', 'receiver');
 await submit();
 await finished();
-assert.match(await value('result-format'), /age/);
+assert.match(await value('result-filename'), /\.age$/);
 await page.evaluate(() => {
   window.__keyMode = 'match';
 });

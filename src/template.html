@@ -39,6 +39,10 @@
           <rect x="3" y="5" width="18" height="14" rx="3" />
           <path d="m4 7 8 6 8-6" />
         </symbol>
+        <symbol id="person" viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+        </symbol>
         <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5" /></symbol>
       </defs>
     </svg>
@@ -64,8 +68,8 @@
     </header>
     <main class="app-shell">
       <section class="intro" aria-labelledby="intro-title">
-        <h1 id="intro-title">大切なことを、<br />相手だけに。</h1>
-        <p class="intro-copy">メッセージも、ファイルも。<br />GitHubの公開鍵で、そっと封をする。</p>
+        <h1 id="intro-title">メッセージを<br />暗号化。</h1>
+        <p class="intro-copy">宛先のGitHubユーザー名で、<br />文章やファイルを暗号化できます。</p>
         <div
           id="cipher-illustration"
           class="cipher-illustration"
@@ -73,20 +77,28 @@
           data-operation="encrypt"
           aria-hidden="true"
         >
+          <span id="cipher-orbit" class="cipher-orbit"></span>
+          <span id="cipher-wave" class="cipher-wave"></span>
           <div class="letter-shadow"></div>
-          <div class="private-letter">
+          <div id="cipher-paper" class="private-letter">
             <svg class="icon letter-envelope"><use href="#envelope" /></svg>
-            <span class="letter-greeting">Dear you,</span>
-            <span id="cipher-letters" class="cipher-letters">大切なことを、相手だけに。</span>
+
+            <span id="cipher-letters" class="cipher-letters">メッセージの内容</span>
             <span class="letter-line"></span><span class="letter-line short"></span>
-            <span class="letter-signature">From me.</span>
+            <span class="cipher-fragments" aria-hidden="true">7A 4F 92 B8</span>
           </div>
-          <div class="letter-seal">
+          <div id="cipher-seal" class="letter-seal">
             <svg class="icon"><use href="#lock" /></svg
             ><svg class="icon seal-check"><use href="#check" /></svg>
           </div>
-          <div class="cipher-tag"><span class="status-dot"></span>あなたの端末内で暗号化</div>
-          <p id="cipher-caption" class="cipher-caption">読むことができるのは、届けたい相手だけ。</p>
+          <div class="cipher-sparks">
+            <i class="cipher-spark"></i><i class="cipher-spark"></i><i class="cipher-spark"></i
+            ><i class="cipher-spark"></i><i class="cipher-spark"></i><i class="cipher-spark"></i
+            ><i class="cipher-spark"></i><i class="cipher-spark"></i><i class="cipher-spark"></i
+            ><i class="cipher-spark"></i><i class="cipher-spark"></i><i class="cipher-spark"></i>
+          </div>
+          <div class="cipher-tag"><span class="status-dot"></span>端末内で暗号化</div>
+          <p id="cipher-caption" class="cipher-caption">処理はこの端末内で行います。</p>
         </div>
       </section>
       <div class="tool-shell">
@@ -150,8 +162,17 @@
               </section>
               <p id="encrypt-error" class="field-error" role="alert" hidden></p>
               <div id="github-recipient" class="recipient-group">
-                <label for="github-user">宛先のGitHubユーザー名</label
-                ><input
+                <div class="recipient-toolbar">
+                  <label for="github-user">宛先のGitHubユーザー名</label
+                  ><button
+                    id="manual-key-button"
+                    type="button"
+                    class="quiet-button manual-key-button"
+                  >
+                    公開鍵を使う
+                  </button>
+                </div>
+                <input
                   id="github-user"
                   data-1p-ignore
                   type="text"
@@ -188,9 +209,7 @@
                 </div>
               </div>
               <p id="recipient-error" class="field-error" role="alert" hidden></p>
-              <button id="manual-key-button" type="button" class="quiet-button manual-key-button">
-                公開鍵を直接入力
-              </button>
+
               <section id="recipient-key-box" class="recipient-key-box" hidden>
                 <p id="recipient-reason" class="field-hint"></p>
                 <section class="input-group" data-drop="recipient">
@@ -226,7 +245,7 @@
                     </button>
                   </div>
                 </section>
-                <p class="field-hint">GPG・SSHのどちらも使えます。形式は自動で判別します。</p>
+
                 <button id="github-key-button" type="button" class="quiet-button">
                   GitHubユーザー名で指定する
                 </button>
@@ -324,71 +343,82 @@
             </div>
           </form>
           <section id="result-panel" aria-labelledby="result-title" hidden>
-            <div class="result-heading">
-              <h2 id="result-title" tabindex="-1">暗号文</h2>
-              <span id="result-target" hidden></span>
-            </div>
-            <section id="signature-status" class="signature-status" aria-label="署名の検証結果">
-              <div class="signature-status-top">
-                <span class="signature-status-icon"
-                  ><svg class="icon" aria-hidden="true">
-                    <use id="signature-status-glyph" href="#info" /></svg
-                ></span>
-                <div class="signature-status-copy">
-                  <h3 id="signature-status-title">署名なし</h3>
-                  <p class="signature-account-line" id="signature-account-line" hidden>
-                    <span id="signature-account-label">署名者（申告）</span
-                    ><a id="signature-account" target="_blank" rel="noreferrer noopener"></a>
-                  </p>
-                  <p id="signature-status-message"></p>
-                </div>
-                <button id="retry-verification" type="button" class="quiet-button" hidden>
-                  再照合
-                </button>
+            <div id="result-content" class="result-content">
+              <div class="result-heading">
+                <h2 id="result-title" tabindex="-1">暗号文</h2>
               </div>
-              <button id="result-cancel-button" type="button" class="quiet-button" hidden>
-                照合を中止
-              </button>
-              <details id="signature-details" hidden>
-                <summary>署名の詳細</summary>
-                <dl>
-                  <dt>署名形式</dt>
-                  <dd id="signature-algorithm"></dd>
-                  <dt>鍵の指紋</dt>
-                  <dd id="signature-fingerprint"></dd>
-                  <dt>確認した時刻</dt>
-                  <dd id="signature-checked-at"></dd>
-                </dl>
-                <p>
-                  作成された署名が、現在そのGitHubアカウントに登録されている公開鍵で検証できることを確かめます。鍵ファイル全体の破損検査や、実在人物の身元保証ではありません。
-                </p>
-              </details>
-            </section>
-            <div id="result-file" class="file-chip" hidden>
-              <svg class="icon" aria-hidden="true"><use href="#file" /></svg>
-              <div><strong id="result-filename"></strong><span id="result-size"></span></div>
+              <div id="delivery-guide" class="delivery-guide" hidden>
+                <div class="delivery-visual" aria-hidden="true">
+                  <span class="delivery-route"></span>
+                  <span class="delivery-packet"
+                    ><svg class="icon"><use href="#envelope" /></svg
+                  ></span>
+                  <span class="delivery-recipient"
+                    ><svg class="icon"><use href="#person" /></svg
+                  ></span>
+                </div>
+                <div class="delivery-copy">
+                  <p id="delivery-title"></p>
+                  <p id="delivery-note"></p>
+                </div>
+              </div>
+              <section id="signature-status" class="signature-status" aria-label="署名の検証結果">
+                <div class="signature-status-top">
+                  <span class="signature-status-icon"
+                    ><svg class="icon" aria-hidden="true">
+                      <use id="signature-status-glyph" href="#info" /></svg
+                  ></span>
+                  <div class="signature-status-copy">
+                    <h3 id="signature-status-title">署名なし</h3>
+                    <p class="signature-account-line" id="signature-account-line" hidden>
+                      <span id="signature-account-label">署名者（申告）</span
+                      ><a id="signature-account" target="_blank" rel="noreferrer noopener"></a>
+                    </p>
+                    <p id="signature-status-message"></p>
+                  </div>
+                  <button id="retry-verification" type="button" class="quiet-button" hidden>
+                    再照合
+                  </button>
+                </div>
+                <button id="result-cancel-button" type="button" class="quiet-button" hidden>
+                  照合を中止
+                </button>
+                <details id="signature-details" hidden>
+                  <summary>署名の詳細</summary>
+                  <dl>
+                    <dt>署名形式</dt>
+                    <dd id="signature-algorithm"></dd>
+                    <dt>鍵の指紋</dt>
+                    <dd id="signature-fingerprint"></dd>
+                    <dt>確認した時刻</dt>
+                    <dd id="signature-checked-at"></dd>
+                  </dl>
+                  <p>
+                    作成された署名が、現在そのGitHubアカウントに登録されている公開鍵で検証できることを確かめます。鍵ファイル全体の破損検査や、実在人物の身元保証ではありません。
+                  </p>
+                </details>
+              </section>
+              <div id="result-file" class="file-chip" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#file" /></svg>
+                <div><strong id="result-filename"></strong><span id="result-size"></span></div>
+              </div>
+              <pre
+                id="result-text"
+                class="result-preview"
+                tabindex="0"
+                aria-label="処理結果"
+                translate="no"
+                hidden
+              ></pre>
+              <p id="preview-hint" class="field-hint" hidden></p>
+              <p id="result-error" class="field-error" role="alert" hidden></p>
             </div>
-            <pre
-              id="result-text"
-              class="result-preview"
-              tabindex="0"
-              aria-label="処理結果"
-              translate="no"
-              hidden
-            ></pre>
-            <p id="preview-hint" class="field-hint" hidden></p>
-            <p id="result-error" class="field-error" role="alert" hidden></p>
             <div class="result-actions">
               <button id="copy-button" type="button" class="primary-button">
                 <span id="copy-label">コピー</span></button
               ><button id="save-button" type="button" class="secondary-button">保存</button
               ><button id="edit-result-button" type="button" class="quiet-button">編集</button>
             </div>
-            <details id="result-details">
-              <summary>詳細</summary>
-              <p id="result-format"></p>
-              <div id="cli-help"><pre id="cli-command"></pre></div>
-            </details>
           </section>
         </section>
         <p class="privacy-caption">
@@ -398,15 +428,7 @@
       </div>
       <p id="live-status" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></p>
     </main>
-    <footer class="site-footer">
-      <span>ひらくのは、あなただけ。</span>
-      <div>
-        <span>OpenPGP / age</span><span>ログイン不要</span
-        ><a href="https://github.com/ryoshin0830/fumi" target="_blank" rel="noreferrer noopener"
-          >GitHub</a
-        >
-      </div>
-    </footer>
+
     <dialog id="help-dialog" aria-labelledby="help-title">
       <div class="dialog-header">
         <h2 id="help-title">Fumi</h2>
@@ -414,6 +436,11 @@
           <svg class="icon" aria-hidden="true"><use href="#close" /></svg>
         </button>
       </div>
+      <p>
+        <a href="https://github.com/ryoshin0830/fumi" target="_blank" rel="noreferrer noopener"
+          >GitHubでソースコードを見る</a
+        >
+      </p>
       <p>宛先のGitHub公開鍵で暗号化します。開くには、対応する秘密鍵が必要です。</p>
       <p>__KEY_DESCRIPTION__署名付きの受信データも、公開鍵を取得して照合します。</p>
       <details>

@@ -4,12 +4,29 @@ import { createCipherMotion } from '../src/ui/motion.js';
 
 function setup(t) {
   const nodes = Object.fromEntries(
-    ['cipher-illustration', 'cipher-letters', 'cipher-caption'].map((id) => [
-      id,
-      { dataset: {}, textContent: '' },
-    ]),
+    [
+      'cipher-illustration',
+      'cipher-letters',
+      'cipher-caption',
+      'cipher-paper',
+      'cipher-seal',
+      'cipher-orbit',
+      'cipher-wave',
+    ].map((id) => [id, { dataset: {}, textContent: '' }]),
   );
   const frames = new Map();
+  const animations = [];
+  for (const node of Object.values(nodes))
+    node.animate = () => {
+      const animation = {
+        cancel() {
+          this.cancelled = true;
+        },
+      };
+      animations.push(animation);
+      return animation;
+    };
+  nodes['cipher-illustration'].querySelectorAll = () => [];
   const media = {
     matches: false,
     addEventListener(_event, handler) {
@@ -20,6 +37,7 @@ function setup(t) {
   for (const [name, value] of Object.entries({
     document: { getElementById: (id) => nodes[id] },
     matchMedia: () => media,
+    getComputedStyle: () => ({ getPropertyValue: () => 'cubic-bezier(0.23, 1, 0.32, 1)' }),
     requestAnimationFrame: (callback) => {
       frames.set(++next, callback);
       return next;
@@ -32,7 +50,7 @@ function setup(t) {
       previous ? Object.defineProperty(globalThis, name, previous) : delete globalThis[name],
     );
   }
-  return { motion: createCipherMotion(), nodes, frames, media };
+  return { motion: createCipherMotion(), nodes, frames, media, animations };
 }
 
 test('cipher motion is bounded, reverses for decryption and never gates completion', (t) => {
@@ -52,16 +70,18 @@ test('cipher motion is bounded, reverses for decryption and never gates completi
   const [decryptId, decryptDraw] = frames.entries().next().value;
   frames.delete(decryptId);
   decryptDraw(performance.now() + 1000);
-  assert.equal(nodes['cipher-letters'].textContent, '大切なことを、相手だけに。');
+  assert.equal(nodes['cipher-letters'].textContent, 'メッセージの内容');
 });
 
 test('reset and errors cancel scheduled text changes', (t) => {
-  const { motion, nodes, frames } = setup(t);
+  const { motion, nodes, frames, animations } = setup(t);
   motion.start('encrypt');
+  assert.ok(animations.length > 0, 'the encryption illustration has a visible choreography');
   motion.reset();
+  assert.ok(animations.every((animation) => animation.cancelled));
   assert.equal(frames.size, 0);
   assert.equal(nodes['cipher-illustration'].dataset.motion, 'idle');
-  assert.equal(nodes['cipher-letters'].textContent, '大切なことを、相手だけに。');
+  assert.equal(nodes['cipher-letters'].textContent, 'メッセージの内容');
   motion.start('encrypt');
   motion.finish(false);
   assert.equal(frames.size, 0);

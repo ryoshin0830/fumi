@@ -77,12 +77,12 @@ function updateForm() {
   $('decrypt-status').hidden = decryptChecked && !passwordNeeded && !busy;
   $('decrypt-status').textContent =
     busy && mode === 'decrypt'
-      ? '復号できるか確認しています…'
+      ? '復号中…'
       : passwordNeeded
-        ? 'この秘密鍵にはパスワードが設定されています。入力して復号してください。'
+        ? 'この秘密鍵にはパスワードが必要です。'
         : decryptChecked
           ? '入力を確認して、もう一度試してください。'
-          : '暗号文と秘密鍵を入力すると、自動で復号を試します。';
+          : '暗号文と秘密鍵がそろうと、自動で復号します。';
   recipientPreview.update(
     $('github-user').value,
     mode === 'encrypt' && !manual && !drafts.encrypt.result,
@@ -176,7 +176,7 @@ async function withJob(label, action, errorId = 'operation-error', automatic = f
   }
   if (promptPassword && id === job) $('passphrase').focus();
 }
-function showManualKey(reason = '相手から受け取った公開鍵を入力してください。') {
+function showManualKey(reason = '相手の公開鍵を入力してください。') {
   manualOpen = true;
   $('recipient-reason').textContent = reason;
   updateForm();
@@ -230,9 +230,7 @@ async function resolveRecipient(current) {
       });
       if (!current()) return null;
       if (source.errors.length) {
-        showManualKey(
-          'GitHubから公開鍵を取得できませんでした。相手から受け取った公開鍵を入力してください。',
-        );
+        showManualKey('公開鍵を取得できませんでした。相手の公開鍵を入力してください。');
         return null;
       }
       keys = await runCrypto('inspect', { pgp: source.pgp, ssh: source.ssh });
@@ -241,9 +239,7 @@ async function resolveRecipient(current) {
     const format = source?.preferred || (keys.pgp.length ? 'pgp' : 'ssh');
     if (!keys[format]?.length) {
       if (!manual) {
-        showManualKey(
-          'GitHubに使える公開鍵が見つかりませんでした。相手から受け取った公開鍵を入力してください。',
-        );
+        showManualKey('使える公開鍵が見つかりませんでした。相手の公開鍵を入力してください。');
         return null;
       }
       throw new Error(

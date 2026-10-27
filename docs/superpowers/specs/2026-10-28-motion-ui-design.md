@@ -27,7 +27,7 @@ Alternative: a long product landing page with scroll chapters. It offers more st
 ## GitHub recipient preview
 
 - After a valid GitHub username, @name or supported profile/key URL is entered, debounce lookup by approximately 450 ms.
-- Show public display name, login, avatar, and an optional short bio, with a GitHub profile link. Use textContent and validated GitHub/avatar URLs.
+- Show public display name, login and avatar, with a GitHub profile link. Omit the bio to keep the form height predictable. Use textContent and validated GitHub/avatar URLs.
 - A same-origin GET endpoint fetches only the public GitHub user profile. Validate usernames; fix the upstream host; bound time and response size; do not forward credentials or arbitrary URLs. Proxy avatars through a narrowly scoped same-origin path or return a safe locally rendered fallback so the page's image policy stays restricted.
 - Profile information is presentation only. A profile card is not a confirmation of usable keys or a person's identity. Check registered key presence as the username settles; validate the actual encryption keys when submitting.
 - Abort superseded requests and guard late responses. Clear/reset, invalid input, manual public keys and mode changes remove stale presentation. Loading, missing accounts, rate limits and network errors have compact states and never block manual keys or normal encryption.
@@ -47,3 +47,5 @@ Keep the current Next.js Route Handler + generated HTML/vanilla JavaScript archi
 - Leave the completed application running locally and provide its URL and the PR link.
 
 The user’s progressive-disclosure correction is implemented by [the follow-up plan](../plans/2026-10-28-progressive-inputs.md). It removes the delivery link and visible format choice and makes password input conditional on a typed protected-key result.
+
+The subsequent [result, motion and viewport correction](../plans/2026-10-28-delivery-motion-layout.md) removes format/CLI result details, adds encryption-only handoff guidance for the actual recipient, strengthens finite motion and replaces ornamental copy. The tool fits the available viewport; long result content scrolls within the card while actions remain visible. See the current [design system](../../design-system.md) for the final behavior.
