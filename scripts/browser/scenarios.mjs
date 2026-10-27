@@ -52,7 +52,8 @@ await page.evaluate((keys) => {
     const make = () =>
       new Response(
         JSON.stringify(
-          window.__keyMode === 'mismatch'
+          window.__keyMode === 'mismatch' ||
+            (window.__keyMode === 'ssh-only' && String(url).includes('type=pgp'))
             ? []
             : String(url).includes('type=pgp')
               ? [{ raw_key: String(url).includes('/alice-pgp?') ? keys.pgp : keys.recipient }]
@@ -93,7 +94,7 @@ async function advanced() {
   if (!(await page.evaluate(() => document.getElementById('advanced-settings').open)))
     await page.click('#advanced-settings > summary');
 }
-async function encrypt(text = original, recipient = 'receiver.gpg') {
+async function encrypt(text = original, recipient = 'receiver') {
   await clear();
   await page.fill('#encrypt-text', text);
   await page.fill('#github-user', recipient);
@@ -183,12 +184,27 @@ assert.equal(await page.evaluate(() => Boolean(window.injected)), false);
 passed.push(
   'one-submit GitHub encryption; ciphertext is immediately visible; full copy and denied-clipboard fallback; exact text decryption',
 );
+await page.evaluate(() => {
+  window.__keyMode = 'ssh-only';
+});
+await encrypt();
+const sshCipher = await value('result-text');
+assert.match(sshCipher, /^-----BEGIN AGE ENCRYPTED FILE-----/);
+assert.equal(await visible('result-text'), true);
+await decrypt(sshCipher, sshSecret, 'test-sign-pass');
+assert.equal(await value('result-text'), original);
+await page.evaluate(() => {
+  window.__keyMode = 'match';
+});
+passed.push(
+  'plain GitHub usernames prefer GPG when present and automatically use SSH/age for text and files when GPG is absent',
+);
 await page.click('#edit-result-button');
-assert.equal(await page.evaluate(() => document.getElementById('decrypt-text').value), cipher);
+assert.equal(await page.evaluate(() => document.getElementById('decrypt-text').value), sshCipher);
 await page.click('#encrypt-tab');
 await page.fill('#encrypt-text', 'draft message');
 await page.click('#decrypt-tab');
-assert.equal(await page.evaluate(() => document.getElementById('secret-text').value), secret);
+assert.equal(await page.evaluate(() => document.getElementById('secret-text').value), sshSecret);
 await page.click('#encrypt-tab');
 assert.equal(
   await page.evaluate(() => document.getElementById('encrypt-text').value),
@@ -252,11 +268,18 @@ passed.push(
 );
 await writeFile(base + 'payload.bin', new Uint8Array([0, 255, 128, 13, 10, 42]));
 await clear();
+await page.evaluate(() => {
+  window.__keyMode = 'ssh-only';
+});
 await page.setInputFiles('#encrypt-file', [base + 'payload.bin']);
 await idle();
-await page.fill('#github-user', 'receiver.keys');
+await page.fill('#github-user', 'receiver');
 await page.click('#run-button');
 await finished();
+assert.match(await value('result-format'), /age/);
+await page.evaluate(() => {
+  window.__keyMode = 'match';
+});
 assert.equal(await visible('result-text'), false);
 assert.equal(await visible('copy-button'), false);
 assert.equal(
