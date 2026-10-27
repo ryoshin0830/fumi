@@ -44,8 +44,8 @@ Files: main branch, GitHub Actions configuration, vercel.json if required, deplo
 - [x] Obtain a read-only review of the actual release source and resolve material findings.
 - [x] Scan the staged file list for secrets/private fixtures and personal paths; commit verified source to main and push.
 - [x] Link the new Vercel project and GitHub repository; deploy production with the existing authenticated account.
-- [ ] Verify public HTTPS page, CSP, static worker, live .gpg/.keys fetches, real browser crypto and absence of private-file routes.
-- [ ] Confirm remote main SHA and CI/deployment readiness, then deliver repository and live URLs with remaining limitations.
+- [x] Verify public HTTPS page, CSP, static worker, live .gpg/.keys fetches, real browser crypto and absence of private-file routes.
+- [x] Confirm remote main SHA and CI/deployment readiness, then deliver repository and live URLs with remaining limitations.
 
 ## Verification record
 
@@ -54,3 +54,10 @@ Files: main branch, GitHub Actions configuration, vercel.json if required, deplo
 - 13 browser scenario groups passed at 375/768/1024/1440px; no JavaScript or CSP errors.
 - Independent static review found no must-fix issues; its documentation-size correction is resolved.
 - 59 staged files were scanned: no private fixtures, credentials, personal paths, generated outputs, or local environment files were included.
+
+## Published result
+
+- Public repository: https://github.com/ryoshin0830/fumi (default branch: main).
+- Production: https://fumi-delta.vercel.app/ (Vercel project: eastlinker/fumi).
+- GitHub integration deploys main automatically; GitHub Actions passed for the release code.
+- Public HTTPS HTML and hashed Worker match the local production build. Live .gpg and .keys endpoints return registered keys. Private fixture/config/source paths return404; invalid API methods/queries are rejected.
