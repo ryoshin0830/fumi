@@ -139,9 +139,9 @@ while (parent) {
 - [x] Run `npm run format:check`, `npm run build`, `GO=/tmp/dgpg-go-toolchain/go/bin/go npm test`, and `GO=/tmp/dgpg-go-toolchain/go/bin/go npm run test:cli`. Capture output; require zero failures.
 - [x] Inspect screenshots at 375, 768, 1024, and 1440px. Cover initial, recipient, review, encrypted result, own-key, decrypted result, and expanded signing states. Check keyboard navigation, visible error focus, no horizontal overflow, and 200% browser zoom.
 - [x] Review the connected UI/controller code and the diff, correcting any real findings. Run focused follow-up checks only for changes made after the full checks.
-- [ ] Commit the verified UI and documentation. Create the PR through `gh`, using the gh-pr-body skill and a body file. Include concrete before/after behavior and validation; leave the PR unmerged for the user's review.
+- [x] Commit the verified UI and documentation. Create the PR through `gh`, using the gh-pr-body skill and a body file. Include concrete before/after behavior and validation; leave the PR unmerged for the user's review.
 - [x] Ensure the server on 3001 still serves this repository's current generated build. Open that URL in Google Chrome, verify its rendered first view, and leave the tab open for the user.
-- [ ] Report the preview URL, PR link, validation, and any remaining limits. Do not merge or deploy main before the user's final review.
+- [x] Report the preview URL, PR link, validation, and any remaining limits. Do not merge or deploy main before the user's final review.
 
 ## Verification and review record
 
@@ -152,3 +152,5 @@ while (parent) {
 - Final CSS follow-up: primary action fits375×844,1440×714, and1440×1000. Inspected desktop/mobile recipient, review, encrypted result, own-key, decrypted result, and expanded signing. Chrome768/1024px screenshots and landscape layout fit. Reduced motion,2× page magnification, and dialog Escape behavior passed.
 - Independent read-only review found sample continuation could replace a different operation's draft and that binary results promised copying. Both were reproduced and fixed; the follow-up review cleared them. Shared draft detection now protects both entry points, and sample transitions use the same heading focus as ordinary navigation.
 - Browser evidence remains in ignored `test-results/`. Two empty-state screenshots are retained in `docs/review/` for PR review; no test keys are published.
+- Delivery: [Draft PR#1](https://github.com/ryoshin0830/fumi/pull/1) targets main from `codex/approachable-ui`. The implementation commit `191dd8e` passed GitHub Actions and Vercel preview checks. The submitted PR body was read back and matched the body file.
+- Local preview: <http://127.0.0.1:3001/> returns HTTP200 and matches the final generated build. The Chrome preview tab is open and retained for the user, with temporary viewport overrides removed. Main remains at `7350d86`; merging awaits the user's review.
