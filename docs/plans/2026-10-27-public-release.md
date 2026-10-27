@@ -42,7 +42,15 @@ Files: main branch, GitHub Actions configuration, vercel.json if required, deplo
 
 - [x] Run a clean production build, unit/integration tests, native GPG/age/OpenSSH matrix and browser scenarios with disposable keys.
 - [x] Obtain a read-only review of the actual release source and resolve material findings.
-- [ ] Scan the staged file list for secrets/private fixtures and personal paths; commit verified source to main and push.
+- [x] Scan the staged file list for secrets/private fixtures and personal paths; commit verified source to main and push.
 - [x] Link the new Vercel project and GitHub repository; deploy production with the existing authenticated account.
 - [ ] Verify public HTTPS page, CSP, static worker, live .gpg/.keys fetches, real browser crypto and absence of private-file routes.
 - [ ] Confirm remote main SHA and CI/deployment readiness, then deliver repository and live URLs with remaining limitations.
+
+## Verification record
+
+- Production build and formatting check passed.
+- 166 automated tests and 12 native GPG/age/OpenSSH compatibility cases passed.
+- 13 browser scenario groups passed at 375/768/1024/1440px; no JavaScript or CSP errors.
+- Independent static review found no must-fix issues; its documentation-size correction is resolved.
+- 59 staged files were scanned: no private fixtures, credentials, personal paths, generated outputs, or local environment files were included.
