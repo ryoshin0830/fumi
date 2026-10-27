@@ -1,11 +1,9 @@
-import { generateKey } from 'openpgp';
 import { inspectPGPKeys, encryptPGP } from './pgp.js';
 import { decryptPayload } from './decrypt.js';
 import { inspectSSHKey, encryptAge, decryptAge } from './age.js';
-import { decodeText, detectFormat, safeFilename, signingKeyType } from './files.js';
+import { decodeText, detectFormat, safeFilename } from './files.js';
 import { MAX_BYTES, MAX_ENCRYPTED_BYTES, MAX_KEY_BYTES, byteLength } from './limits.js';
-import { createSignedPackage, readSignedPackage, verifyRegisteredSignature } from './signatures.js';
-import { encryptNativePGP } from './native-pgp.js';
+import { readSignedPackage, verifyRegisteredSignature } from './signatures.js';
 
 async function inspect({ pgp = [], ssh = [] }) {
   if (
@@ -45,67 +43,18 @@ self.onmessage = async ({ data: { id, action, payload } }) => {
   try {
     let result;
     if (action === 'inspect') result = await inspect(payload);
-    else if (action === 'demo') {
-      const pair = await generateKey({
-        type: 'ecc',
-        curve: 'curve25519Legacy',
-        userIDs: [{ name: 'Fumi sample — disposable key' }],
-      });
-      const text =
-        'こんにちは、Fumiへようこそ。\n\nこのメッセージは、あなたのブラウザ内だけで暗号化・復号されます。\n大切なデータを、必要な人だけに。\n';
-      const encrypted = await encryptPGP({
-        data: new TextEncoder().encode(text),
-        recipients: [pair.publicKey],
-        filename: 'hello-fumi.txt',
-        armored: true,
-      });
-      result = {
-        ...pair,
-        text,
-        ciphertext: encrypted.text,
-        recipients: await inspectPGPKeys(pair.publicKey),
-      };
-    } else if (action === 'encrypt') {
-      const { data, format, recipients, filename, armored, signer } = payload;
+    else if (action === 'encrypt') {
+      if (payload.signer) throw new Error('署名付きの暗号化には対応していません。');
+      const { data, format, recipients, filename, armored } = payload;
       if (byteLength(data) > MAX_BYTES)
         throw new Error('暗号化する内容は50 MB以下にしてください。');
-      const native = signer && format === 'pgp' && signingKeyType(signer.privateKey) === 'pgp';
-      const signed =
-        signer && !native ? await createSignedPackage({ ...signer, data, filename }) : null;
-      const encryptedData = signed ? signed.bytes : data;
-      const storedName = signed ? safeFilename(filename) + '.signed.zip' : safeFilename(filename);
-      if (native)
-        result = await encryptNativePGP({
-          ...signer,
-          data,
-          recipients,
-          filename: storedName,
-          armored,
-        });
-      else
-        result =
-          format === 'pgp'
-            ? await encryptPGP({
-                data: encryptedData,
-                recipients,
-                filename: storedName,
-                armored,
-                container: Boolean(signed),
-              })
-            : await encryptAge({
-                data: encryptedData,
-                recipients,
-                armored,
-                container: Boolean(signed),
-              });
+      const storedName = safeFilename(filename);
+      result =
+        format === 'pgp'
+          ? await encryptPGP({ data, recipients, filename: storedName, armored })
+          : await encryptAge({ data, recipients, armored });
       result.format = format;
-      result.originalFilename = safeFilename(filename);
       result.filename = storedName + (format === 'pgp' ? (armored ? '.asc' : '.gpg') : '.age');
-      if (signed) {
-        result.verification = signed.verification;
-        result.encoding = 'signed-zip';
-      }
-      if (result.verification) result.verification.state = 'created';
     } else if (action === 'decrypt') {
       const { data, privateKey, passphrase, sourceName } = payload;
       if (byteLength(data) > MAX_ENCRYPTED_BYTES || byteLength(privateKey) > MAX_KEY_BYTES)

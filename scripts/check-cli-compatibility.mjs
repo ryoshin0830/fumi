@@ -71,6 +71,17 @@ try {
     loader: { '.wasm': 'binary' },
     logLevel: 'silent',
   });
+  await build({
+    entryPoints: [join(root, 'scripts/legacy-encryption.mjs')],
+    outfile: join(directory, 'legacy.mjs'),
+    target: 'es2022',
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    loader: { '.wasm': 'binary' },
+    logLevel: 'silent',
+  });
+  const { legacyEncrypt } = await import('file://' + join(directory, 'legacy.mjs'));
   await writeFile(
     join(directory, 'worker.mjs'),
     `import {parentPort} from 'node:worker_threads';globalThis.self=globalThis;globalThis.postMessage=data=>parentPort.postMessage(data);await import('./worker-bundle.mjs');parentPort.on('message',data=>self.onmessage({data}));`,
@@ -116,7 +127,8 @@ try {
         const caseDirectory = join(directory, id);
         await mkdir(caseDirectory);
         const keys = signing === 'pgp' ? [signer.publicKey] : [sshPublic];
-        const encrypted = await rpc('encrypt', {
+        const encrypt = signing === 'none' ? (payload) => rpc('encrypt', payload) : legacyEncrypt;
+        const encrypted = await encrypt({
           data: new Uint8Array(input.bytes),
           format,
           recipients: [format === 'pgp' ? receiver.publicKey : sshReceiverPublic],
@@ -131,6 +143,12 @@ try {
                   registeredKeys: keys,
                 },
         });
+        const restored = await rpc('decrypt', {
+          data: encrypted.bytes,
+          privateKey: format === 'pgp' ? receiver.privateKey : await readFile(sshReceiver, 'utf8'),
+          sourceName: encrypted.filename,
+        });
+        assert.deepEqual(Buffer.from(restored.bytes), input.bytes);
         const ciphertext = join(caseDirectory, encrypted.filename);
         const plaintext = join(caseDirectory, 'decrypted');
         await writeFile(ciphertext, encrypted.bytes);

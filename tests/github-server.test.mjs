@@ -1,10 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { githubKeysResponse } from '../server/github-keys.mjs';
+import { resolveGitHub } from '../src/recipients.js';
 import { GET, runtime, dynamic } from '../app/api/github-keys/[username]/route.js';
 
 const pgp = '-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nYWJj\n-----END PGP PUBLIC KEY BLOCK-----';
 const ssh = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKey user@example';
+const noPGP =
+  "-----BEGIN PGP PUBLIC KEY BLOCK-----\nNote: This user hasn't uploaded any GPG keys.\n\n\n=twTO\n-----END PGP PUBLIC KEY BLOCK-----";
 const request = (query = 'type=pgp', options = {}) =>
   new Request(`http://localhost/api/github-keys/octocat?${query}`, options);
 const call = (fetcher, { username = 'octocat', query = 'type=pgp', req = request(query) } = {}) =>
@@ -133,11 +136,34 @@ test('empty pages return empty arrays for either key type', async () => {
   }
 });
 
+test('GitHub no-GPG-key armor returns an empty key list', async () => {
+  for (const text of [noPGP, noPGP.replaceAll('\n', '\r\n')]) {
+    const response = await call(async () => new Response(text));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), []);
+  }
+});
+
+test('automatic lookup continues with SSH when GitHub reports no GPG keys', async () => {
+  const result = await resolveGitHub('octocat', {
+    backend: true,
+    fetcher: (url) =>
+      githubKeysResponse(new Request(new URL(url, 'http://localhost')), {
+        username: 'octocat',
+        fetcher: async (upstream) => new Response(upstream.endsWith('.gpg') ? noPGP : ssh),
+      }),
+  });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.pgp, []);
+  assert.deepEqual(result.ssh, [ssh]);
+});
+
 test('malformed or HTML public pages produce bounded JSON errors without reflecting upstream text', async () => {
   for (const [type, text, contentType] of [
     ['pgp', '<html>private-upstream-marker</html>', 'text/html'],
     ['pgp', 'not an armored key private-upstream-marker', 'text/plain'],
     ['pgp', `${pgp}\nprivate-upstream-marker`, 'text/plain'],
+    ['pgp', `${noPGP}\nprivate-upstream-marker`, 'text/plain'],
     ['pgp', '-----BEGIN PGP PRIVATE KEY BLOCK-----\nprivate-upstream-marker', 'text/plain'],
     ['ssh', '<html>private-upstream-marker</html>', 'text/plain'],
     ['ssh', `${ssh}\nprivate-upstream-marker`, 'text/plain'],

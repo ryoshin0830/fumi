@@ -2,6 +2,8 @@ const MAX_BYTES = 1024 * 1024;
 const USERNAME = /^(?!.*--)[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i;
 const PGP_BLOCK =
   /-----BEGIN PGP PUBLIC KEY BLOCK-----\r?\n(?:[A-Za-z0-9-]+:[^\r\n]*\r?\n)*\r?\n(?:[A-Za-z0-9+/=]+\r?\n)+-----END PGP PUBLIC KEY BLOCK-----/g;
+const EMPTY_PGP_BLOCK =
+  /^-----BEGIN PGP PUBLIC KEY BLOCK-----\r?\nNote: This user hasn't uploaded any GPG keys\.\r?\n(?:\r?\n)*=twTO\r?\n-----END PGP PUBLIC KEY BLOCK-----$/;
 const SSH_KEY =
   /^(?:ssh-(?:rsa|dss|ed25519)|ecdsa-sha2-nistp(?:256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com) [A-Za-z0-9+/]+={0,2}(?:[ \t]+[^\r\n]*)?$/;
 
@@ -106,6 +108,7 @@ export async function githubKeysResponse(request, { username, fetcher = fetch })
       const text = (await readText()).trim();
       if (!text) return json([]);
       if (type === 'pgp') {
+        if (EMPTY_PGP_BLOCK.test(text)) return json([]);
         const blocks = text.match(PGP_BLOCK);
         if (!blocks || text.replace(PGP_BLOCK, '').trim()) throw new Error('invalid format');
         return json([{ raw_key: text }]);

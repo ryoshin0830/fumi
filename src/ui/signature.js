@@ -2,7 +2,6 @@ import { $ } from './dom.js';
 
 export function renderSignatureView(result, mode) {
   $('signature-status').hidden = !result || (!result.verification && !result.signed);
-  $('unsigned-details').hidden = !result || Boolean(result.verification || result.signed);
   if (!result) {
     for (const id of [
       'signature-status-title',
@@ -27,7 +26,6 @@ export function renderSignatureView(result, mode) {
       'GitHubユーザー情報が含まれていないため、自動照合していません。',
       'info',
     ],
-    created: ['署名を付けました', '作成した署名を、あなたのGitHub公開鍵で検証しました。', 'check'],
     pending: [
       'GitHubと照合しています',
       '署名と内容の整合性は確認済みです。現在の登録公開鍵を取得しています。',
@@ -59,9 +57,7 @@ export function renderSignatureView(result, mode) {
   $('retry-verification').hidden =
     mode !== 'decrypt' || !verification || !['unavailable', 'mismatch'].includes(state);
   if (verification) {
-    $('signature-account-label').textContent = ['verified', 'created'].includes(state)
-      ? '署名者'
-      : '署名者（申告）';
+    $('signature-account-label').textContent = state === 'verified' ? '署名者' : '署名者（申告）';
     $('signature-account').textContent = '@' + verification.github;
     $('signature-account').href = `https://github.com/${verification.github}`;
     $('signature-algorithm').textContent =
