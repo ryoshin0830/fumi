@@ -30,3 +30,7 @@ An independent read-only code review found that the original broad `[data-operat
 ## Limits
 
 Physical Safari/iPhone testing was not performed. GitHub public-profile API limits may temporarily prevent the preview; normal encryption and supplied public keys remain available. Standalone HTML deliberately uses a local initial instead of a remote avatar to preserve its image policy.
+
+## Delivery
+
+[PR #2](https://github.com/ryoshin0830/fumi/pull/2) is open against main, with screenshots and validation in the description. The production server is running at http://127.0.0.1:3100/ using `npx next start --hostname 127.0.0.1 --port 3100`. The worktree and review browser tab are preserved.

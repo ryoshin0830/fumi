@@ -1,6 +1,6 @@
 # Fumi: expressive, private by design
 
-Status: implementation direction accepted by the user's instruction to continue toward the PR and running local application.
+Status: implemented and verified. [PR #2](https://github.com/ryoshin0830/fumi/pull/2) is open; the production build is running locally at http://127.0.0.1:3100/.
 
 ## Direction and alternatives
 
