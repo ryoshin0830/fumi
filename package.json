@@ -3,7 +3,7 @@
   "version": "2.5.0",
   "private": true,
   "type": "module",
-  "description": "Browser encryption, decryption and GitHub-bound signatures with OpenPGP and age.",
+  "description": "Browser encryption and decryption with GitHub public keys, OpenPGP and age.",
   "scripts": {
     "build": "npm run build:client && NEXT_TELEMETRY_DISABLED=1 next build",
     "build:age": "node scripts/build-age.mjs",

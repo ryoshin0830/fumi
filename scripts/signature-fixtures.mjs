@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { build } from 'esbuild';
 import { zipSync, unzipSync } from 'fflate';
 import { encryptPGP } from '../src/pgp.js';
+import { encryptNativePGP } from '../src/native-pgp.js';
 const destination = new URL('../test-results/signatures/', import.meta.url);
 await mkdir(destination, { recursive: true });
 const recipient = await pgp.generateKey({
@@ -67,6 +68,25 @@ try {
     registeredKeys: [signer.publicKey],
   });
   const files = unzipSync(packaged.bytes);
+  const legacy = await encryptPGP({
+    data: packaged.bytes,
+    recipients: [recipient.publicKey],
+    filename: 'legacy.signed.zip',
+    armored: true,
+    container: true,
+  });
+  await writeFile(new URL('legacy-signed.asc', destination), legacy.text);
+  const native = await encryptNativePGP({
+    data: new TextEncoder().encode('Existing signed message'),
+    recipients: [recipient.publicKey],
+    filename: 'legacy.txt',
+    armored: true,
+    github: 'alice-pgp',
+    privateKey: signer.privateKey,
+    passphrase: 'test-sign-pass',
+    registeredKeys: [signer.publicKey],
+  });
+  await writeFile(new URL('legacy-native.asc', destination), native.text);
   files['content/tamper.txt'][0] ^= 1;
   const changed = api.addPackageMarker(zipSync(files, { level: 0 }));
   const cipher = await encryptPGP({

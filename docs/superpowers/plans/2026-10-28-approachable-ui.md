@@ -1,156 +1,77 @@
-# Approachable Fumi Implementation Plan
+# Minimum Useful Fumi Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. The user explicitly requested inline execution and a local Chrome preview.
+> **For agentic workers:** Use superpowers:executing-plans in the current feature branch. This revision implements the user's concrete review instructions.
 
-**Goal:** Give non-programmers a clear, progressively disclosed interface, then deliver the running local application in Chrome and a reviewable PR.
+**Goal:** Remove encryption signing and demos, reduce the task to one submit, and display copyable ciphertext directly.
 
-**Architecture:** Preserve the existing controller, flow model, cryptographic worker, and Next.js route handler. Revise the HTML and the existing flow/result views; keep optional-feature visibility and validation in the controller. Consolidate the UI stylesheet instead of appending another override layer.
+**Architecture:** Keep the crypto worker, recipient resolver, DOM/result/signature views, and current build. Replace the wizard controller with a single-form controller; remove the flow model and view. Only compatibility tests may create old signed fixtures.
 
-**Tech Stack:** Next.js 16.4.3, browser JavaScript, semantic HTML/CSS, esbuild, existing Node and Ego browser checks. No new dependencies.
+**Tech Stack:** Existing Next.js, vanilla JavaScript, HTML/CSS, esbuild, Node tests, browser regressions. No new dependencies.
 
-## Global Constraints
+## Constraints
 
-- Retain Japanese as the interface language.
-- Body and form inputs are at least 16px; secondary descriptions are at least 14px; compact supporting labels are at least 12px.
-- All controls have at least 44px targets, visible keyboard focus, sufficient text contrast, and reduced-motion support.
-- Do not alter cryptographic algorithms, encrypted formats, worker boundaries, GitHub lookup contracts, privacy policy/CSP, file limits, or CLI interoperability.
-- Keep dynamic user content rendered through `textContent`.
-- No new persistence, account system, analytics, key generation workflow, or automatic message delivery.
-- Work on `codex/approachable-ui`. Keep main and its automatic Vercel deployment untouched until final user review.
-- Existing baseline: 170 Node tests pass with `GO=/tmp/dgpg-go-toolchain/go/bin/go`, production build passes, 12 native CLI compatibility cases pass.
-- Local port 3000 belongs to a different project. Use `http://127.0.0.1:3001/` for Fumi and verify its working directory before reusing an existing listener.
+- Work on `codex/approachable-ui`; keep Draft PR#1 unmerged.
+- Preserve Japanese, standard PGP/age, old signed-data reads, CSP, byte limits, draft safety, cancellation and validation.
+- Keep short visible labels,44px targets,16px inputs, keyboard focus, reduced motion and375–1440px layouts.
+- Use the existing local preview port3001; port3000 is another project.
 
----
+## Task 1: Prove the removal contract
 
-## Task 1: Capture the novice interaction regressions
+Files: `tests/signature-worker.test.mjs`, `scripts/browser/scenarios.mjs`.
 
-**Files:** Modify `scripts/browser/scenarios.mjs`.
-
-**Interfaces:** Consume the existing `page`, `visible(id)`, `value(id)`, `stage()`, `idle()`, `finished()`, `content()`, `manualRecipient()`, and `signing()` helpers. Preserve the real cryptographic round trips and network-boundary checks.
-
-- [x] Add initial-state assertions before filling content:
+- [x] Add and run failing worker checks for removed sample generation and rejected signing requests:
 
 ```js
-assert.equal(await visible('flow-hint'), true);
-assert.match(await value('flow-hint'), /入力|ファイル/);
-assert.equal(await visible('sample-invitation'), true);
+await assert.rejects(rpc('demo', {}), /処理|対応/);
+await assert.rejects(
+  rpc('encrypt', {
+    data: new Uint8Array([1]),
+    format: 'pgp',
+    recipients: [pgpPair.publicKey],
+    filename: 'message.txt',
+    armored: true,
+    signer: { privateKey: pgpSigner.privateKey },
+  }),
+  /署名/,
+);
 ```
 
-- [x] Assert that entering a draft hides the trial invitation and that a programmatic trial click cannot replace that draft:
+- [x] Add browser checks that the sample/signing/progress controls are absent, a single submit resolves the recipient and encrypts, ciphertext is visible, and Copy is primary. Verify clipboard rejection, large-preview fallback, file round trips, manual-key precedence, mode drafts, cancellation, and legacy signature states.
+
+## Task 2: Delete the runtime features and simplify the UI
+
+Files: `src/crypto-worker.js`, `src/app.js`, `src/template.html`, `src/styles.css`, `src/ui/result.js`, `src/ui/signature.js`. Delete `src/flow.js`, `src/ui/flow.js`, `tests/flow.test.mjs`.
+
+- [x] Remove key generation and signed-encryption imports/branches from the worker. Keep ordinary encryption and existing signed-data decryption. Reject the old signing option explicitly:
 
 ```js
-assert.equal(await visible('sample-invitation'), false);
-await page.evaluate(() => document.getElementById('demo-button').click());
-assert.equal(await page.evaluate(() => document.getElementById('encrypt-text').value), original);
+if (payload.signer) throw new Error('署名付きの暗号化には対応していません。');
 ```
 
-- [x] At review, assert the optional signature is initially outside the visible path, then update the signing helper to expand `#additional-options > summary` only when closed. Use the two `[data-edit-step]` controls to return to content and recipient and assert drafts remain intact.
-- [x] Close `additional-options` after entering a wrong signing password. Submit; assert that `signer-error` is visible, its disclosure is open, and it receives focus.
-- [x] After encryption, assert that `result-handoff` is visible, describes email/chat and the recipient's secret key, and that the technical result disclosure remains closed.
-- [x] Open `#privacy-options > summary` before the clear-all control. Replace the former draft-overwriting trial case with a file-draft preservation check: the sample is unavailable and programmatic activation leaves the selected file intact.
-- [x] Generate disposable fixtures with `npm run fixtures:signatures`. Run the scenario against the unchanged local app, expecting the first empty-state assertion to fail. Reuse the same Ego task space for retries; do not open another space after a failure.
+- [x] Retain the controller's busy/job/AbortController boundaries and per-operation drafts. Remove all stage, signer and sample state. `resolveRecipient(current)` consumes manual-key bytes or the GitHub field and optional format; it returns `{format, keys, username}` only after successful inspection. Never fall back from an explicit format or partial lookup failure.
+- [x] Replace HTML with two operation tabs, labeled content and attachment inputs, the necessary key/recipient inputs, one submit, one clear action, Advanced settings, and compact results. User-provided content stays in `textContent`.
+- [x] Make a manual public key replace the visible GitHub recipient field and expose the active source in the Advanced summary.
+- [x] Display text results directly. Copy uses the complete stored text. A denied clipboard selects a complete small preview; a truncated preview directs the user to Save instead of copying invalid partial ciphertext.
+- [x] Retain visible legacy signature failure/pending/retry/cancel, remove signature creation and unsigned explanations, and consolidate the CSS around the smaller interface.
 
-## Task 2: Build the focused working surface
+## Task 3: Preserve compatibility and deliver
 
-**Files:** Modify `src/template.html`, `src/ui/flow.js`, `src/styles.css`, and `src/app.js`.
+Files: `scripts/legacy-encryption.mjs`, worker and native CLI compatibility tests, current README/design docs/screenshots, PR body.
 
-**Interfaces:** `renderFlow()` retains its existing state/result inputs and receives a `sampleAvailable` boolean from `updateButton()`. All existing DOM IDs used by the controller remain present. Add `sample-invitation`, `additional-options`, `privacy-options`, and two buttons with `data-edit-step="0"` / `data-edit-step="1"`.
+- [x] Generate old signed fixtures through a development-only helper, so compatibility tests no longer request the removed application capability. Exercise the production worker when reading those fixtures.
+- [x] Run formatting, build, full unit tests with the installed Go toolchain, native CLI checks, and the revised browser suite. Require zero JS/CSP errors and bodyless GET-only key requests.
+- [x] Inspect375/768/1024/1440px, keyboard and short-window results. Update the retained review screenshots and current docs to describe this final interface.
+- [x] Review the connected code and fix concrete findings. Leave the local Chrome preview open.
 
-- [x] Replace the purpose copy with 「大切な内容を、相手だけに。」 and one explanatory sentence. Use operation labels 「鍵をかけて渡す」 / 「受け取って開く」. Put compact step progress before the current task heading; make the step-count caption visually hidden while retaining its announcement.
-- [x] Give text and key inputs visible labels. Use 「メッセージ」 for content text choices and clear examples in placeholders. Recipient instructions explain both GitHub lookup and the alternate supplied-public-key path; add a disclosure describing what to ask the recipient for.
-- [x] Keep review summaries and add specific edit buttons. Wrap signing in `details#additional-options` with a descriptive summary. Keep the GPG/age opening requirement visible before creation. Explain the secret key and its password in ordinary language at the decryption step.
-- [x] Move the sample action to a small invitation below the working card, with an explicit sample-data explanation. Move clearing both drafts and the About control into `details#privacy-options`; retain the current-draft reset as a quiet, directly available action.
-- [x] Compute trial availability from all active-mode draft fields and files, not just the visible input:
+Delivery continues in Draft PR#1: update its title/body to the final change, wait for the new CI/Vercel checks, and leave main unmerged.
 
-```js
-function hasDraft(operation) {
-  const fields =
-    operation === 'encrypt'
-      ? [
-          'encrypt-text',
-          'github-user',
-          'recipient-text',
-          'signer-github',
-          'signer-text',
-          'signer-passphrase',
-        ]
-      : ['decrypt-text', 'secret-text', 'passphrase'];
-  const kinds = operation === 'encrypt' ? ['encrypt', 'signer'] : ['decrypt', 'secret'];
-  return Boolean(
-    drafts[operation].result ||
-    fields.some((id) => $(id).value.length) ||
-    kinds.some((kind) => drafts[kind].file) ||
-    (operation === 'encrypt' && (recipient || $('include-signature').checked)),
-  );
-}
+## Local evidence
 
-const sampleAvailable = state.step === 0 && !hasDraft(mode);
-```
-
-- [x] In `renderFlow()`, set `sample-invitation.hidden = busy || Boolean(result) || !sampleAvailable`. In the demo click handler, return when the invitation is hidden or work is busy. Preserve the existing real sample cryptography.
-- [x] Make the empty first-step explanation visible whenever content is missing, and retain the existing malformed-ciphertext explanation when entered data is unrecognized. Set the next action to 「次へ：相手を選ぶ」 or 「自分の鍵を用意する」 as appropriate; the final encrypt action is 「鍵をかけて作成」.
-- [x] Before displaying any field error, open its ancestor disclosures:
-
-```js
-let parent = $(id).parentElement;
-while (parent) {
-  if (parent.tagName === 'DETAILS') parent.open = true;
-  parent = parent.parentElement;
-}
-```
-
-- [x] Register `[data-edit-step]` clicks with the existing `changeStep()` function. Reset the additional-options disclosure when encryption is reset. Preserve busy state, draft separation, key requirements, and cancellation.
-- [x] Consolidate CSS into one set of base rules and responsive overrides: neutral canvas, white working card, blue action, 680–736px content width, quiet progress line, 16px inputs, 14px supporting text, 44px targets, mobile wrapping, and reduced motion. Preserve all signature warning colors, file picker focus, selected controls, drop zones, dialogs, and preview overflow behavior.
-- [x] Run `npm run build:client`, then repeat the initial browser interaction checks. Expect the empty explanation, draft-safe trial, navigation, and signature error checks to pass.
-
-## Task 3: Make completion and delivery clear
-
-**Files:** Modify `src/template.html` and `src/ui/result.js`.
-
-**Interfaces:** `renderResultView(result, mode)` retains its signature and all crypto result data. Add `result-handoff`; preserve signature status and retry/cancel IDs, preview, filename, save/copy, technical notes, and CLI output.
-
-- [x] Put result filename and save/copy actions immediately after the heading and any visible signature status. Move unsigned signature explanation and technical notes below the primary actions.
-- [x] Add the practical delivery instructions, using semantic HTML:
-
-```html
-<section id="result-handoff" class="delivery-guide" aria-labelledby="delivery-title">
-  <h3 id="delivery-title">あとは、相手に渡すだけ。</h3>
-  <ol>
-    <li>
-      <strong>いつもの方法で送る</strong>
-      <p>保存したファイルやコピーした文章を、メールやチャットで送ってください。</p>
-    </li>
-    <li>
-      <strong>相手はFumiで開く</strong>
-      <p>「受け取って開く」で、受け取ったデータと対応する秘密鍵を指定します。</p>
-    </li>
-  </ol>
-</section>
-```
-
-- [x] Set the encrypted result title to 「渡す準備ができました」 and `result-handoff.hidden = !encrypt`. Keep the decrypted text preview open and the encrypted preview closed. Move `result-note` into the technical disclosure without removing format/ZIP/native-tool details.
-- [x] Run the updated complete browser scenario against the local build. Expect all existing and added interaction/crypto cases to pass with no JavaScript or CSP errors.
-
-## Task 4: Verify and deliver the review surface
-
-**Files:** Modify `docs/design-system.md`, `README.md`, this plan, and the PR description. Retain the Next.js-generated `AGENTS.md` guidance so subsequent local runs do not generate an unexplained untracked file.
-
-- [x] Update the design document and README to describe the actual final interaction, safe trial entry, and result handoff. Mark plan steps only after their evidence exists.
-- [x] Run `npm run format:check`, `npm run build`, `GO=/tmp/dgpg-go-toolchain/go/bin/go npm test`, and `GO=/tmp/dgpg-go-toolchain/go/bin/go npm run test:cli`. Capture output; require zero failures.
-- [x] Inspect screenshots at 375, 768, 1024, and 1440px. Cover initial, recipient, review, encrypted result, own-key, decrypted result, and expanded signing states. Check keyboard navigation, visible error focus, no horizontal overflow, and 200% browser zoom.
-- [x] Review the connected UI/controller code and the diff, correcting any real findings. Run focused follow-up checks only for changes made after the full checks.
-- [x] Commit the verified UI and documentation. Create the PR through `gh`, using the gh-pr-body skill and a body file. Include concrete before/after behavior and validation; leave the PR unmerged for the user's review.
-- [x] Ensure the server on 3001 still serves this repository's current generated build. Open that URL in Google Chrome, verify its rendered first view, and leave the tab open for the user.
-- [x] Report the preview URL, PR link, validation, and any remaining limits. Do not merge or deploy main before the user's final review.
-
-## Verification and review record
-
-- Existing baseline: 170 tests, production build, and 12 native CLI cases passed before UI changes.
-- The added empty-state browser assertion failed before implementation. Follow-up checks separately reproduced cross-mode sample overwrite availability, missing sample focus, binary copy wording, and an off-screen primary action at1440×714 before their fixes.
-- The complete browser suite passed 9 groups after controller/result fixes, including real PGP/age text and binary round trips, PGP/SSH signatures, cancellation, current-key mismatch/offline/retry, clipboard fallback, draft-safe samples, review edits, and errors revealed in closed disclosures. No JavaScript or CSP errors; key requests remained bodyless GETs.
-- Full post-change Node suite:170 passed,0 failed. Native CLI compatibility:12 cases passed.
-- Final CSS follow-up: primary action fits375×844,1440×714, and1440×1000. Inspected desktop/mobile recipient, review, encrypted result, own-key, decrypted result, and expanded signing. Chrome768/1024px screenshots and landscape layout fit. Reduced motion,2× page magnification, and dialog Escape behavior passed.
-- Independent read-only review found sample continuation could replace a different operation's draft and that binary results promised copying. Both were reproduced and fixed; the follow-up review cleared them. Shared draft detection now protects both entry points, and sample transitions use the same heading focus as ordinary navigation.
-- Browser evidence remains in ignored `test-results/`. Two empty-state screenshots are retained in `docs/review/` for PR review; no test keys are published.
-- Delivery: [Draft PR#1](https://github.com/ryoshin0830/fumi/pull/1) targets main from `codex/approachable-ui`. The implementation commit `191dd8e` passed GitHub Actions and Vercel preview checks. The submitted PR body was read back and matched the body file.
-- Local preview: <http://127.0.0.1:3001/> returns HTTP200 and matches the final generated build. The Chrome preview tab is open and retained for the user, with temporary viewport overrides removed. Main remains at `7350d86`; merging awaits the user's review.
+- Removal checks were observed failing before implementation and passing afterward.
+- `npm run format:check` and `npm run build` passed. Web HTML70 KiB, standalone9.54 MiB.
+- `GO=/tmp/dgpg-go-toolchain/go/bin/go npm test`:168 passed,0 failed.
+- Native GPG/age compatibility:12 cases passed, including production-worker reads of legacy signed fixtures.
+- Browser:7 scenario groups passed;375/768/1024/1440px, no horizontal overflow, zero JavaScript/CSP errors,11 bodyless credential-free public-key GETs.
+- Focused checks cover full ciphertext copying, denied clipboard and successful retry, file bytes, manual-key source, draft retention, legacy signature states, verification cancellation/late responses, tampering rejection, rate limits and cancellation. Keyboard operation tabs and mobile advanced/decrypt layouts also inspected.
+- Independent connected-code review findings fixed and re-reviewed: stale copy error, missing pending-verification cancellation regression.
+- Chrome local preview: `http://127.0.0.1:3001/`.

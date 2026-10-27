@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 import * as pgp from 'openpgp';
 import { zipSync } from 'fflate';
 
-let directory, worker, pgpPair, pgpSigner, sshPrivate, sshPublic;
+let directory, worker, pgpPair, pgpSigner, sshPrivate, sshPublic, legacyEncrypt;
 let sequence = 0;
 const pending = new Map();
 const rpc = (action, payload) =>
@@ -19,6 +19,8 @@ const rpc = (action, payload) =>
     pending.set(id, { resolve, reject });
     worker.postMessage({ id, action, payload });
   });
+const encryptFixture = (payload) =>
+  payload.signer ? legacyEncrypt(payload) : rpc('encrypt', payload);
 const original = new Uint8Array([0, 255, 10, 13, 128, 42]);
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), 'dgpg-signature-worker-'));
@@ -48,6 +50,17 @@ before(async () => {
     loader: { '.wasm': 'binary' },
     logLevel: 'silent',
   });
+  await build({
+    entryPoints: ['scripts/legacy-encryption.mjs'],
+    outfile: join(directory, 'legacy.mjs'),
+    target: 'es2022',
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    loader: { '.wasm': 'binary' },
+    logLevel: 'silent',
+  });
+  ({ legacyEncrypt } = await import('file://' + join(directory, 'legacy.mjs')));
   await writeFile(
     join(directory, 'worker.mjs'),
     `import {parentPort} from 'node:worker_threads';globalThis.self=globalThis;globalThis.postMessage=data=>parentPort.postMessage(data);await import('./worker-bundle.mjs');parentPort.on('message',data=>self.onmessage({data}));`,
@@ -67,16 +80,37 @@ after(async () => {
   await worker?.terminate();
   await rm(directory, { recursive: true, force: true });
 });
+test('sample generation is not exposed by the application worker', async () => {
+  await assert.rejects(rpc('demo', {}), /処理|対応/);
+});
+test('the application rejects signing instead of silently downgrading it', async () => {
+  await assert.rejects(
+    rpc('encrypt', {
+      data: original,
+      format: 'pgp',
+      recipients: [pgpPair.publicKey],
+      filename: 'message.txt',
+      armored: true,
+      signer: {
+        github: 'alice',
+        privateKey: pgpSigner.privateKey,
+        passphrase: 'test-pass',
+        registeredKeys: [pgpSigner.publicKey],
+      },
+    }),
+    /署名/,
+  );
+});
 for (const signerType of ['pgp', 'ssh'])
   for (const format of ['pgp', 'ssh']) {
-    test(`${signerType} signer works independently of ${format} recipient format`, async () => {
+    test(`${signerType} signed data restores with ${format} recipient format`, async () => {
       const signer = {
         github: 'alice',
         privateKey: signerType === 'pgp' ? pgpSigner.privateKey : sshPrivate,
         passphrase: 'test-pass',
         registeredKeys: [signerType === 'pgp' ? pgpSigner.publicKey : sshPublic],
       };
-      const encrypted = await rpc('encrypt', {
+      const encrypted = await encryptFixture({
         data: original,
         format,
         recipients: [format === 'pgp' ? pgpPair.publicKey : sshPublic],
@@ -119,7 +153,7 @@ for (const signerType of ['pgp', 'ssh'])
   }
 test('unsigned text ending in the package marker remains ordinary data', async () => {
   const data = new TextEncoder().encode('ordinary text ending in dgpg-signed-v1');
-  const encrypted = await rpc('encrypt', {
+  const encrypted = await encryptFixture({
     data,
     format: 'pgp',
     recipients: [pgpPair.publicKey],
@@ -131,7 +165,7 @@ test('unsigned text ending in the package marker remains ordinary data', async (
   assert.equal(restored.verification, undefined);
 });
 test('native OpenPGP signature interoperates with GnuPG', async () => {
-  const encrypted = await rpc('encrypt', {
+  const encrypted = await encryptFixture({
     data: original,
     format: 'pgp',
     recipients: [pgpPair.publicKey],
@@ -268,7 +302,7 @@ test('existing v1 signed ciphertext still restores original bytes and GitHub ide
 
 test('native PGP signing preserves an original ZIP even when it has a legacy package marker', async () => {
   const data = await legacyPackage();
-  const encrypted = await rpc('encrypt', {
+  const encrypted = await encryptFixture({
     data,
     format: 'pgp',
     recipients: [pgpPair.publicKey],
@@ -298,7 +332,7 @@ test('native PGP and signed age preserve the exact 50 MiB plaintext boundary', a
       passphrase: 'test-pass',
       registeredKeys: [format === 'pgp' ? pgpSigner.publicKey : sshPublic],
     };
-    const encrypted = await rpc('encrypt', {
+    const encrypted = await encryptFixture({
       data,
       format,
       recipients: [format === 'pgp' ? pgpPair.publicKey : sshPublic],
