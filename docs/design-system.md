@@ -1,6 +1,6 @@
-# Fumi — minimal utility
+# Fumi — a private letter
 
-The interface uses a compact Apple-inspired light style, system fonts and native disclosure controls. UI UX Pro Max supplied form-label, submission-feedback and keyboard-focus guidance. No new UI dependencies.
+The interface combines an Apple-inspired editorial introduction with a directly usable encryption tool. System fonts, a local letter illustration, restrained blue and purposeful motion express the idea of sealing a private letter. UI UX Pro Max, frontend-design, apple-design, animate and web-design-guidelines inform the design; no UI runtime dependencies were added. See the [skill comparison](ui-animation-skills-research.md).
 
 ## Visible by default
 
@@ -10,7 +10,7 @@ The interface uses a compact Apple-inspired light style, system fonts and native
 - Header: Fumi, 「すべて消去」 and help. Clear removes inputs, keys and results from both modes.
 - A short privacy caption. Detailed limits, licensing and background live in help.
 
-There is no demo, sample-key generation, signature creation, wizard, confirmation step or introductory hero. Keep visible labels even when reducing prose.
+The short introduction sits beside the tool on desktop and above it on mobile. It does not add a wizard or confirmation step. Keep visible labels even when reducing prose. A debounced GitHub preview shows public name, avatar, login and optional bio. It is advisory: usable keys are checked when encryption runs; failed previews never block submission.
 
 ## Progressive disclosure
 
@@ -22,15 +22,21 @@ Existing signed ciphertext keeps visible pending, verified, mismatch and unavail
 
 ## Visual system
 
-- Background `#f5f5f7`, surface `#ffffff`, text `#1d1d1f`, secondary `#6e6e73`, accent `#0066cc`, line `#d2d2d7`, error `#b42318`, success `#247247`.
+- Background `#f5f5f7`, surface `#ffffff`, text `#1d1d1f`, secondary `#61616b`, accent `#0066cc`, line `#d2d2d7`, error `#b42318`, success `#247247`.
 - System sans-serif. Inputs and result text 16px; labels and buttons 14px; privacy/metadata 12px. No external fonts.
-- Main content width 640px within a 688px shell; 28px workspace padding, 20px on mobile; 18px card corners and 10px control corners.
+- A 1160px outer grid contains the introduction and tool with a 64px gap. Stack below 760px; use 28px workspace padding (20px on mobile), 28px tool corners (24px mobile), and 12px input corners.
 - Minimum 44px targets, 48px primary actions, visible keyboard focus, explicit labels, inline errors and a live status region. Decorative SVGs are hidden from assistive technology.
-- Responsive 375/768/1024/1440px layouts, no horizontal page overflow, reduced-motion support. Selected tabs have a subtle shadow; the workspace uses a border.
+- Responsive 375/768/1024/1440px layouts, no horizontal page overflow, reduced-motion support. The selected tab has a moving surface and subtle shadow. The sticky header keeps clear/help available while scrolling long keys.
+
+## Motion
+
+A 650ms entrance introduces the composition. Actions use 160ms press feedback, a 250ms tab transition and a brief result reveal. A fixed illustrative phrase transforms into cipher characters over 700ms on encryption and reverses on decryption. Real work starts immediately; quick results are available while the illustration finishes. Cancel, error, clear and mode changes stop pending frames. The letter becomes a compact line on mobile.
+
+Decorative text never copies a user’s message and is hidden from assistive technology. Reduced motion disables transforms and character animation while keeping readable status. Reduced transparency makes the header solid.
 
 ## Data boundaries
 
-Content, private keys and passwords stay in the browser. Only public-key lookup uses the network. No persistent input or key storage. Preserve the worker, byte limits, validation, cancellation and legacy signed-data verification.
+Content, private keys and passwords stay in the browser. Public-key, public-profile and avatar lookup use the network through fixed-origin endpoints. Web avatars are same-origin raster images; standalone uses an initial instead. No persistent input or key storage. Preserve the worker, byte limits, validation, cancellation and legacy signed-data verification.
 
 ## References
 

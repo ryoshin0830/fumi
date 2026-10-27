@@ -1,6 +1,8 @@
 import { $ } from './ui/dom.js';
 import { renderResultView } from './ui/result.js';
 import { renderSignatureView } from './ui/signature.js';
+import { createRecipientPreview } from './ui/recipient.js';
+import { createCipherMotion } from './ui/motion.js';
 import { resolveGitHub, clearGitHubKeyCache } from './recipients.js';
 import { runCrypto, cancelCrypto } from './worker-client.js';
 import { MAX_BYTES, MAX_ENCRYPTED_BYTES, MAX_KEY_BYTES, byteLength } from './limits.js';
@@ -15,6 +17,8 @@ let mode = 'encrypt';
 let job = 0;
 let busy = false;
 let controller;
+const recipientPreview = createRecipientPreview();
+const cipherMotion = createCipherMotion();
 const valueOf = (kind) =>
   drafts[kind].kind === 'file' ? drafts[kind].file?.bytes : $(kind + '-text').value;
 const hasValue = (kind) =>
@@ -45,6 +49,7 @@ function errorAt(id, message, input) {
   announce(message);
 }
 function updateForm() {
+  document.documentElement.dataset.operation = mode;
   for (const operation of ['encrypt', 'decrypt']) {
     $(operation + '-panel').hidden = operation !== mode;
     $(operation + '-tab').setAttribute('aria-selected', String(operation === mode));
@@ -58,6 +63,10 @@ function updateForm() {
   }
   const manual = hasValue('recipient');
   $('github-recipient').hidden = manual;
+  recipientPreview.update(
+    $('github-user').value,
+    mode === 'encrypt' && !manual && !drafts.encrypt.result,
+  );
   $('advanced-label').textContent =
     '詳細設定' +
     (manual ? ' · 公開鍵' : '') +
@@ -93,6 +102,7 @@ function setBusy(value, label = '処理中…') {
   updateForm();
 }
 function cancelWork() {
+  cipherMotion.reset();
   job++;
   controller?.abort();
   controller = null;
@@ -119,6 +129,7 @@ async function withJob(label, action, errorId = 'operation-error') {
     await action(() => id === job);
   } catch (error) {
     if (id === job && error.name !== 'AbortError') {
+      cipherMotion.reset();
       const target =
         error.field ||
         (mode === 'decrypt' && /秘密鍵|パスフレーズ/.test(error.message)
@@ -214,6 +225,7 @@ $('main-form').addEventListener('submit', (event) => {
   if (busy || $('run-button').disabled) return;
   const operation = mode;
   invalidate();
+  cipherMotion.start(operation);
   withJob(operation === 'encrypt' ? '暗号化中…' : '復号中…', async (current) => {
     const value = valueOf(operation);
     let result;
@@ -241,22 +253,22 @@ $('main-form').addEventListener('submit', (event) => {
     renderResult();
     if (result.verification) await checkSignature(result, current);
     if (!current()) return;
+    cipherMotion.finish(true);
     $('result-title').focus({ preventScroll: true });
-    document
-      .querySelector('.operation-tabs')
-      .scrollIntoView({ block: 'start', behavior: 'instant' });
+    $('workspace').scrollIntoView({ block: 'nearest', behavior: 'instant' });
     announce(operation === 'encrypt' ? '暗号化しました。' : '復号しました。');
   });
 });
 function switchMode(next, focus = false) {
   if (next === mode) return;
+  cipherMotion.reset();
   if (busy) cancelWork();
   mode = next;
   clearErrors();
   renderResult();
   if (focus) $(mode + '-tab').focus();
 }
-for (const node of document.querySelectorAll('[data-operation]')) {
+for (const node of document.querySelectorAll('.operation-tabs [data-operation]')) {
   node.addEventListener('click', () => switchMode(node.dataset.operation));
   node.addEventListener('keydown', (event) => {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
@@ -400,6 +412,7 @@ $('save-button').addEventListener('click', () => {
 });
 $('clear-button').addEventListener('click', () => {
   cancelWork();
+  recipientPreview.reset();
   clearGitHubKeyCache();
   for (const kind of Object.keys(drafts)) {
     drafts[kind] = { kind: 'text', file: null, result: null };

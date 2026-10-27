@@ -1,0 +1,82 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createCipherMotion } from '../src/ui/motion.js';
+
+function setup(t) {
+  const nodes = Object.fromEntries(
+    ['cipher-illustration', 'cipher-letters', 'cipher-caption'].map((id) => [
+      id,
+      { dataset: {}, textContent: '' },
+    ]),
+  );
+  const frames = new Map();
+  const media = {
+    matches: false,
+    addEventListener(_event, handler) {
+      this.change = handler;
+    },
+  };
+  let next = 0;
+  for (const [name, value] of Object.entries({
+    document: { getElementById: (id) => nodes[id] },
+    matchMedia: () => media,
+    requestAnimationFrame: (callback) => {
+      frames.set(++next, callback);
+      return next;
+    },
+    cancelAnimationFrame: (id) => frames.delete(id),
+  })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { configurable: true, value });
+    t.after(() =>
+      previous ? Object.defineProperty(globalThis, name, previous) : delete globalThis[name],
+    );
+  }
+  return { motion: createCipherMotion(), nodes, frames, media };
+}
+
+test('cipher motion is bounded, reverses for decryption and never gates completion', (t) => {
+  const { motion, nodes, frames } = setup(t);
+  motion.start('encrypt');
+  assert.equal(nodes['cipher-illustration'].dataset.motion, 'working');
+  assert.equal(frames.size, 1);
+  motion.finish(true);
+  assert.equal(nodes['cipher-illustration'].dataset.motion, 'complete');
+  assert.equal(frames.size, 1, 'completion returns immediately while the illustration can finish');
+  const [id, draw] = frames.entries().next().value;
+  frames.delete(id);
+  draw(performance.now() + 1000);
+  assert.equal(frames.size, 0);
+  assert.match(nodes['cipher-letters'].textContent, /^[a-zA-Z0-9]+$/);
+  motion.start('decrypt');
+  const [decryptId, decryptDraw] = frames.entries().next().value;
+  frames.delete(decryptId);
+  decryptDraw(performance.now() + 1000);
+  assert.equal(nodes['cipher-letters'].textContent, '大切なことを、相手だけに。');
+});
+
+test('reset and errors cancel scheduled text changes', (t) => {
+  const { motion, nodes, frames } = setup(t);
+  motion.start('encrypt');
+  motion.reset();
+  assert.equal(frames.size, 0);
+  assert.equal(nodes['cipher-illustration'].dataset.motion, 'idle');
+  assert.equal(nodes['cipher-letters'].textContent, '大切なことを、相手だけに。');
+  motion.start('encrypt');
+  motion.finish(false);
+  assert.equal(frames.size, 0);
+  assert.equal(nodes['cipher-illustration'].dataset.motion, 'idle');
+});
+
+test('reduced motion schedules no frames and stops an animation already running', (t) => {
+  const { motion, frames, media } = setup(t);
+  media.matches = true;
+  motion.start('encrypt');
+  assert.equal(frames.size, 0);
+  media.matches = false;
+  motion.start('decrypt');
+  assert.equal(frames.size, 1);
+  media.matches = true;
+  media.change();
+  assert.equal(frames.size, 0);
+});

@@ -48,10 +48,10 @@ async function render(source) {
     },
   });
   const script = bundle.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-  const csp = `default-src 'none'; script-src ${hash(script)} 'wasm-unsafe-eval'; style-src ${hash(styles)}; worker-src ${web ? "'self'" : 'blob:'}; connect-src ${web ? "'self'" : 'https://api.github.com'}; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
+  const csp = `default-src 'none'; script-src ${hash(script)} 'wasm-unsafe-eval'; style-src ${hash(styles)}; worker-src ${web ? "'self'" : 'blob:'}; connect-src ${web ? "'self'" : 'https://api.github.com'}; img-src ${web ? "'self'" : "'none'"}; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
   const description = web
-    ? '公開鍵は、このサーバーを経由してGitHubの .gpg / .keys 公開ページから取得します。サーバーに送るのはGitHubユーザー名と鍵の種類だけです。本文・ファイル・秘密鍵・パスフレーズは送信しません。'
-    : '公開鍵はGitHubの公式APIから取得します。このファイル版ではAPIの取得制限が適用されます。本文・ファイル・秘密鍵・パスフレーズは送信しません。';
+    ? '公開プロフィールは宛先の入力後にGitHub公式APIから、アイコンはGitHubの画像配信元から、このサーバーを経由して取得します。公開鍵はGitHubの .gpg / .keys 公開ページから取得します。サーバーに送るのはGitHubユーザー名・公開アカウントID・鍵の種類だけです。本文・ファイル・秘密鍵・パスフレーズは送信しません。'
+    : '公開プロフィールと公開鍵はGitHubの公式APIから取得します。このファイル版ではAPIの取得制限が適用され、アイコンの代わりに頭文字を表示します。本文・ファイル・秘密鍵・パスフレーズは送信しません。';
   return template
     .replace('__CSP__', () => csp)
     .replace('__KEY_SOURCE__', source)

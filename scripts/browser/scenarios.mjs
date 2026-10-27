@@ -43,6 +43,13 @@ await page.evaluate((keys) => {
       body: options.body || null,
       credentials: options.credentials,
     });
+    if (String(url).startsWith('/api/github-profile/'))
+      return Response.json({
+        id: 1,
+        login: String(url).split('/').pop(),
+        name: 'Recipient',
+        bio: '',
+      });
     if (window.__keyMode === 'offline') throw new TypeError('Failed to fetch');
     if (window.__keyMode === 'limit')
       return new Response('{"message":"rate limit"}', {
@@ -445,7 +452,10 @@ const telemetry = await page.evaluate(() => ({
 assert.deepEqual(telemetry.errors, []);
 assert.deepEqual(telemetry.csp, []);
 for (const request of telemetry.requests) {
-  assert.match(request.url, /^\/api\/github-keys\/[a-z0-9-]+\?type=(pgp|ssh)$/);
+  assert.match(
+    request.url,
+    /^\/api\/github-(?:keys\/[a-z0-9-]+\?type=(pgp|ssh)|profile\/[a-z0-9-]+)$/,
+  );
   assert.equal(request.method, 'GET');
   assert.equal(request.body, null);
   assert.equal(request.credentials, 'omit');
@@ -471,4 +481,4 @@ console.log({
   errors: telemetry.errors,
   csp: telemetry.csp,
 });
-await task.finish({ keep: [] });
+if (!__FUMI_KEEP__) await task.finish({ keep: [] });

@@ -35,12 +35,19 @@
           <circle cx="12" cy="12" r="9" />
           <path d="M12 11v6M12 7v1" />
         </symbol>
+        <symbol id="envelope" viewBox="0 0 24 24">
+          <rect x="3" y="5" width="18" height="14" rx="3" />
+          <path d="m4 7 8 6 8-6" />
+        </symbol>
+        <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5" /></symbol>
       </defs>
     </svg>
     <header class="site-header">
       <a href="#" class="brand" aria-label="Fumi ホーム"
-        ><svg class="icon" aria-hidden="true"><use href="#lock" /></svg>
-        <h1>Fumi</h1></a
+        ><span class="brand-mark"
+          ><svg class="icon" aria-hidden="true"><use href="#envelope" /></svg
+        ></span>
+        <span class="brand-name">Fumi</span></a
       >
       <div>
         <button
@@ -56,277 +63,348 @@
       </div>
     </header>
     <main class="app-shell">
-      <div class="operation-tabs" role="tablist" aria-label="操作">
-        <button
-          id="encrypt-tab"
-          type="button"
-          role="tab"
-          aria-selected="true"
-          aria-controls="encrypt-panel"
+      <section class="intro" aria-labelledby="intro-title">
+        <h1 id="intro-title">大切なことを、<br />相手だけに。</h1>
+        <p class="intro-copy">メッセージも、ファイルも。<br />GitHubの公開鍵で、そっと封をする。</p>
+        <div
+          id="cipher-illustration"
+          class="cipher-illustration"
+          data-motion="idle"
           data-operation="encrypt"
+          aria-hidden="true"
         >
-          暗号化</button
-        ><button
-          id="decrypt-tab"
-          type="button"
-          role="tab"
-          aria-selected="false"
-          aria-controls="decrypt-panel"
-          data-operation="decrypt"
-          tabindex="-1"
-        >
-          復号
-        </button>
-      </div>
-      <noscript><p>JavaScriptを有効にしてください。</p></noscript>
-      <section id="workspace" class="workspace" aria-label="暗号化・復号" aria-busy="false">
-        <form id="main-form" autocomplete="off">
-          <section id="encrypt-panel" role="tabpanel" aria-labelledby="encrypt-tab">
-            <section class="input-group" data-drop="encrypt">
-              <div class="field-toolbar">
-                <label for="encrypt-text">内容</label
-                ><label class="file-button" for="encrypt-file"
-                  ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
-                    id="encrypt-file"
-                    type="file"
-                    aria-label="内容のファイルを選ぶ"
-                /></label>
-              </div>
-              <div id="encrypt-text-pane">
-                <textarea
-                  id="encrypt-text"
-                  placeholder="メッセージを入力"
-                  spellcheck="false"
-                  autocapitalize="none"
-                  aria-describedby="encrypt-error"
-                ></textarea>
-              </div>
-              <div id="encrypt-file-pane" class="file-chip" hidden>
-                <svg class="icon" aria-hidden="true"><use href="#file" /></svg
-                ><span id="encrypt-file-name"></span
-                ><button
-                  id="encrypt-file-remove"
-                  type="button"
-                  class="quiet-button"
-                  aria-label="内容のファイルを取り除く"
-                >
-                  外す
-                </button>
-              </div>
-            </section>
-            <p id="encrypt-error" class="field-error" role="alert" hidden></p>
-            <div id="github-recipient" class="recipient-group">
-              <label for="github-user">宛先</label
-              ><input
-                id="github-user"
-                data-1p-ignore
-                type="text"
-                placeholder="GitHubユーザー名"
-                spellcheck="false"
-                autocapitalize="none"
-                aria-describedby="recipient-error"
-              />
-            </div>
-            <p id="recipient-error" class="field-error" role="alert" hidden></p>
-            <details id="advanced-settings" class="advanced-settings">
-              <summary id="advanced-label">詳細設定</summary>
-              <section class="input-group" data-drop="recipient">
+          <div class="letter-shadow"></div>
+          <div class="private-letter">
+            <svg class="icon letter-envelope"><use href="#envelope" /></svg>
+            <span class="letter-greeting">Dear you,</span>
+            <span id="cipher-letters" class="cipher-letters">大切なことを、相手だけに。</span>
+            <span class="letter-line"></span><span class="letter-line short"></span>
+            <span class="letter-signature">From me.</span>
+          </div>
+          <div class="letter-seal">
+            <svg class="icon"><use href="#lock" /></svg
+            ><svg class="icon seal-check"><use href="#check" /></svg>
+          </div>
+          <div class="cipher-tag"><span class="status-dot"></span>あなたの端末内で暗号化</div>
+          <p id="cipher-caption" class="cipher-caption">読むことができるのは、届けたい相手だけ。</p>
+        </div>
+        <a class="intro-link" href="#workspace"
+          >メッセージを届ける <svg class="icon" aria-hidden="true"><use href="#arrow" /></svg
+        ></a>
+      </section>
+      <div class="tool-shell">
+        <div class="operation-tabs" role="tablist" aria-label="操作">
+          <button
+            id="encrypt-tab"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="encrypt-panel"
+            data-operation="encrypt"
+          >
+            暗号化</button
+          ><button
+            id="decrypt-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="decrypt-panel"
+            data-operation="decrypt"
+            tabindex="-1"
+          >
+            復号
+          </button>
+        </div>
+        <noscript><p>JavaScriptを有効にしてください。</p></noscript>
+        <section id="workspace" class="workspace" aria-label="暗号化・復号" aria-busy="false">
+          <form id="main-form" autocomplete="off">
+            <section id="encrypt-panel" role="tabpanel" aria-labelledby="encrypt-tab">
+              <section class="input-group" data-drop="encrypt">
                 <div class="field-toolbar">
-                  <label for="recipient-text">公開鍵</label
-                  ><label class="file-button" for="recipient-file"
+                  <label for="encrypt-text">内容</label
+                  ><label class="file-button" for="encrypt-file"
                     ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
-                      id="recipient-file"
+                      id="encrypt-file"
                       type="file"
-                      aria-label="公開鍵のファイルを選ぶ"
+                      aria-label="内容のファイルを選ぶ"
                   /></label>
                 </div>
-                <div id="recipient-text-pane">
+                <div id="encrypt-text-pane">
                   <textarea
-                    id="recipient-text"
-                    placeholder="公開鍵を貼り付け"
+                    id="encrypt-text"
+                    placeholder="メッセージを入力"
                     spellcheck="false"
                     autocapitalize="none"
-                    aria-describedby="recipient-error"
+                    aria-describedby="encrypt-error"
                   ></textarea>
                 </div>
-                <div id="recipient-file-pane" class="file-chip" hidden>
+                <div id="encrypt-file-pane" class="file-chip" hidden>
                   <svg class="icon" aria-hidden="true"><use href="#file" /></svg
-                  ><span id="recipient-file-name"></span
+                  ><span id="encrypt-file-name"></span
                   ><button
-                    id="recipient-file-remove"
+                    id="encrypt-file-remove"
                     type="button"
                     class="quiet-button"
-                    aria-label="公開鍵のファイルを取り除く"
+                    aria-label="内容のファイルを取り除く"
                   >
                     外す
                   </button>
                 </div>
               </section>
-              <label for="preferred-format">形式</label
-              ><select id="preferred-format">
-                <option value="auto">自動</option>
-                <option value="pgp">OpenPGP</option>
-                <option value="ssh">age</option>
-              </select>
-            </details>
-          </section>
-          <section id="decrypt-panel" role="tabpanel" aria-labelledby="decrypt-tab" hidden>
-            <section class="input-group" data-drop="decrypt">
-              <div class="field-toolbar">
-                <label for="decrypt-text">暗号文</label
-                ><label class="file-button" for="decrypt-file"
-                  ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
-                    id="decrypt-file"
-                    type="file"
-                    aria-label="暗号文のファイルを選ぶ"
-                /></label>
-              </div>
-              <div id="decrypt-text-pane">
-                <textarea
-                  id="decrypt-text"
-                  placeholder="受け取った暗号文"
+              <p id="encrypt-error" class="field-error" role="alert" hidden></p>
+              <div id="github-recipient" class="recipient-group">
+                <label for="github-user">宛先</label
+                ><input
+                  id="github-user"
+                  data-1p-ignore
+                  type="text"
+                  placeholder="GitHubユーザー名"
                   spellcheck="false"
                   autocapitalize="none"
-                  aria-describedby="decrypt-error"
-                ></textarea>
+                  aria-describedby="recipient-error"
+                />
+                <div id="recipient-preview" class="recipient-preview" hidden>
+                  <div id="recipient-card" hidden>
+                    <a
+                      id="recipient-link"
+                      class="recipient-card"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      <span class="recipient-avatar-wrap"
+                        ><span id="recipient-initial"></span
+                        ><img id="recipient-avatar" alt="" width="44" height="44" hidden
+                      /></span>
+                      <span class="recipient-identity"
+                        ><strong id="recipient-name"></strong><span id="recipient-login"></span
+                        ><span id="recipient-bio"></span
+                      ></span>
+                      <svg class="icon profile-arrow" aria-hidden="true"><use href="#arrow" /></svg>
+                    </a>
+                  </div>
+                  <p
+                    id="recipient-status"
+                    class="recipient-status"
+                    role="status"
+                    aria-live="polite"
+                  ></p>
+                </div>
               </div>
-              <div id="decrypt-file-pane" class="file-chip" hidden>
-                <svg class="icon" aria-hidden="true"><use href="#file" /></svg
-                ><span id="decrypt-file-name"></span
-                ><button
-                  id="decrypt-file-remove"
-                  type="button"
-                  class="quiet-button"
-                  aria-label="暗号文のファイルを取り除く"
-                >
-                  外す
-                </button>
-              </div>
+              <p id="recipient-error" class="field-error" role="alert" hidden></p>
+              <details id="advanced-settings" class="advanced-settings">
+                <summary id="advanced-label">詳細設定</summary>
+                <section class="input-group" data-drop="recipient">
+                  <div class="field-toolbar">
+                    <label for="recipient-text">公開鍵</label
+                    ><label class="file-button" for="recipient-file"
+                      ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
+                      >ファイル<input
+                        id="recipient-file"
+                        type="file"
+                        aria-label="公開鍵のファイルを選ぶ"
+                    /></label>
+                  </div>
+                  <div id="recipient-text-pane">
+                    <textarea
+                      id="recipient-text"
+                      placeholder="公開鍵を貼り付け"
+                      spellcheck="false"
+                      autocapitalize="none"
+                      aria-describedby="recipient-error"
+                    ></textarea>
+                  </div>
+                  <div id="recipient-file-pane" class="file-chip" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#file" /></svg
+                    ><span id="recipient-file-name"></span
+                    ><button
+                      id="recipient-file-remove"
+                      type="button"
+                      class="quiet-button"
+                      aria-label="公開鍵のファイルを取り除く"
+                    >
+                      外す
+                    </button>
+                  </div>
+                </section>
+                <label for="preferred-format">形式</label
+                ><select id="preferred-format">
+                  <option value="auto">自動</option>
+                  <option value="pgp">OpenPGP</option>
+                  <option value="ssh">age</option>
+                </select>
+              </details>
             </section>
-            <p id="decrypt-error" class="field-error" role="alert" hidden></p>
-            <section class="input-group" data-drop="secret">
-              <div class="field-toolbar">
-                <label for="secret-text">秘密鍵</label
-                ><label class="file-button" for="secret-file"
-                  ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
-                    id="secret-file"
-                    type="file"
-                    aria-label="秘密鍵のファイルを選ぶ"
-                /></label>
-              </div>
-              <div id="secret-text-pane">
-                <textarea
-                  id="secret-text"
-                  placeholder="秘密鍵を貼り付け"
-                  spellcheck="false"
-                  autocapitalize="none"
-                  aria-describedby="secret-error"
-                ></textarea>
-              </div>
-              <div id="secret-file-pane" class="file-chip" hidden>
-                <svg class="icon" aria-hidden="true"><use href="#file" /></svg
-                ><span id="secret-file-name"></span
-                ><button
-                  id="secret-file-remove"
-                  type="button"
-                  class="quiet-button"
-                  aria-label="秘密鍵のファイルを取り除く"
-                >
-                  外す
-                </button>
-              </div>
+            <section id="decrypt-panel" role="tabpanel" aria-labelledby="decrypt-tab" hidden>
+              <section class="input-group" data-drop="decrypt">
+                <div class="field-toolbar">
+                  <label for="decrypt-text">暗号文</label
+                  ><label class="file-button" for="decrypt-file"
+                    ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
+                      id="decrypt-file"
+                      type="file"
+                      aria-label="暗号文のファイルを選ぶ"
+                  /></label>
+                </div>
+                <div id="decrypt-text-pane">
+                  <textarea
+                    id="decrypt-text"
+                    placeholder="受け取った暗号文"
+                    spellcheck="false"
+                    autocapitalize="none"
+                    aria-describedby="decrypt-error"
+                  ></textarea>
+                </div>
+                <div id="decrypt-file-pane" class="file-chip" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="#file" /></svg
+                  ><span id="decrypt-file-name"></span
+                  ><button
+                    id="decrypt-file-remove"
+                    type="button"
+                    class="quiet-button"
+                    aria-label="暗号文のファイルを取り除く"
+                  >
+                    外す
+                  </button>
+                </div>
+              </section>
+              <p id="decrypt-error" class="field-error" role="alert" hidden></p>
+              <section class="input-group" data-drop="secret">
+                <div class="field-toolbar">
+                  <label for="secret-text">秘密鍵</label
+                  ><label class="file-button" for="secret-file"
+                    ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
+                      id="secret-file"
+                      type="file"
+                      aria-label="秘密鍵のファイルを選ぶ"
+                  /></label>
+                </div>
+                <div id="secret-text-pane">
+                  <textarea
+                    id="secret-text"
+                    placeholder="秘密鍵を貼り付け"
+                    spellcheck="false"
+                    autocapitalize="none"
+                    aria-describedby="secret-error"
+                  ></textarea>
+                </div>
+                <div id="secret-file-pane" class="file-chip" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="#file" /></svg
+                  ><span id="secret-file-name"></span
+                  ><button
+                    id="secret-file-remove"
+                    type="button"
+                    class="quiet-button"
+                    aria-label="秘密鍵のファイルを取り除く"
+                  >
+                    外す
+                  </button>
+                </div>
+              </section>
+              <label class="password-label" for="passphrase"
+                >鍵のパスワード <span>必要な場合</span></label
+              ><input
+                id="passphrase"
+                data-1p-ignore
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="secret-error"
+              />
+              <p id="secret-error" class="field-error" role="alert" hidden></p>
             </section>
-            <label class="password-label" for="passphrase"
-              >鍵のパスワード <span>必要な場合</span></label
-            ><input
-              id="passphrase"
-              data-1p-ignore
-              type="password"
-              autocomplete="off"
-              spellcheck="false"
-              aria-describedby="secret-error"
-            />
-            <p id="secret-error" class="field-error" role="alert" hidden></p>
-          </section>
-          <p id="operation-error" class="field-error" role="alert" hidden></p>
-          <div class="form-actions">
-            <button id="cancel-button" type="button" class="quiet-button" hidden>中止</button
-            ><button id="run-button" type="submit" class="primary-button" disabled>
-              <span id="run-label">暗号化</span>
-            </button>
-          </div>
-        </form>
-        <section id="result-panel" aria-labelledby="result-title" hidden>
-          <div class="result-heading">
-            <h2 id="result-title" tabindex="-1">暗号文</h2>
-            <span id="result-target" hidden></span>
-          </div>
-          <section id="signature-status" class="signature-status" aria-label="署名の検証結果">
-            <div class="signature-status-top">
-              <span class="signature-status-icon"
-                ><svg class="icon" aria-hidden="true">
-                  <use id="signature-status-glyph" href="#info" /></svg
-              ></span>
-              <div class="signature-status-copy">
-                <h3 id="signature-status-title">署名なし</h3>
-                <p class="signature-account-line" id="signature-account-line" hidden>
-                  <span id="signature-account-label">署名者（申告）</span
-                  ><a id="signature-account" target="_blank" rel="noreferrer noopener"></a>
-                </p>
-                <p id="signature-status-message"></p>
-              </div>
-              <button id="retry-verification" type="button" class="quiet-button" hidden>
-                再照合
+            <p id="operation-error" class="field-error" role="alert" hidden></p>
+            <div class="form-actions">
+              <button id="cancel-button" type="button" class="quiet-button" hidden>中止</button
+              ><button id="run-button" type="submit" class="primary-button" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#lock" /></svg>
+                <span id="run-label">暗号化</span>
               </button>
             </div>
-            <button id="result-cancel-button" type="button" class="quiet-button" hidden>
-              照合を中止
-            </button>
-            <details id="signature-details" hidden>
-              <summary>署名の詳細</summary>
-              <dl>
-                <dt>署名形式</dt>
-                <dd id="signature-algorithm"></dd>
-                <dt>鍵の指紋</dt>
-                <dd id="signature-fingerprint"></dd>
-                <dt>確認した時刻</dt>
-                <dd id="signature-checked-at"></dd>
-              </dl>
-              <p>
-                作成された署名が、現在そのGitHubアカウントに登録されている公開鍵で検証できることを確かめます。鍵ファイル全体の破損検査や、実在人物の身元保証ではありません。
-              </p>
+          </form>
+          <section id="result-panel" aria-labelledby="result-title" hidden>
+            <div class="result-heading">
+              <h2 id="result-title" tabindex="-1">暗号文</h2>
+              <span id="result-target" hidden></span>
+            </div>
+            <section id="signature-status" class="signature-status" aria-label="署名の検証結果">
+              <div class="signature-status-top">
+                <span class="signature-status-icon"
+                  ><svg class="icon" aria-hidden="true">
+                    <use id="signature-status-glyph" href="#info" /></svg
+                ></span>
+                <div class="signature-status-copy">
+                  <h3 id="signature-status-title">署名なし</h3>
+                  <p class="signature-account-line" id="signature-account-line" hidden>
+                    <span id="signature-account-label">署名者（申告）</span
+                    ><a id="signature-account" target="_blank" rel="noreferrer noopener"></a>
+                  </p>
+                  <p id="signature-status-message"></p>
+                </div>
+                <button id="retry-verification" type="button" class="quiet-button" hidden>
+                  再照合
+                </button>
+              </div>
+              <button id="result-cancel-button" type="button" class="quiet-button" hidden>
+                照合を中止
+              </button>
+              <details id="signature-details" hidden>
+                <summary>署名の詳細</summary>
+                <dl>
+                  <dt>署名形式</dt>
+                  <dd id="signature-algorithm"></dd>
+                  <dt>鍵の指紋</dt>
+                  <dd id="signature-fingerprint"></dd>
+                  <dt>確認した時刻</dt>
+                  <dd id="signature-checked-at"></dd>
+                </dl>
+                <p>
+                  作成された署名が、現在そのGitHubアカウントに登録されている公開鍵で検証できることを確かめます。鍵ファイル全体の破損検査や、実在人物の身元保証ではありません。
+                </p>
+              </details>
+            </section>
+            <div id="result-file" class="file-chip" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#file" /></svg>
+              <div><strong id="result-filename"></strong><span id="result-size"></span></div>
+            </div>
+            <pre
+              id="result-text"
+              class="result-preview"
+              tabindex="0"
+              aria-label="処理結果"
+              translate="no"
+              hidden
+            ></pre>
+            <p id="preview-hint" class="field-hint" hidden></p>
+            <p id="result-error" class="field-error" role="alert" hidden></p>
+            <div class="result-actions">
+              <button id="copy-button" type="button" class="primary-button">
+                <span id="copy-label">コピー</span></button
+              ><button id="save-button" type="button" class="secondary-button">保存</button
+              ><button id="edit-result-button" type="button" class="quiet-button">編集</button>
+            </div>
+            <details id="result-details">
+              <summary>詳細</summary>
+              <p id="result-format"></p>
+              <div id="cli-help"><pre id="cli-command"></pre></div>
             </details>
           </section>
-          <div id="result-file" class="file-chip" hidden>
-            <svg class="icon" aria-hidden="true"><use href="#file" /></svg>
-            <div><strong id="result-filename"></strong><span id="result-size"></span></div>
-          </div>
-          <pre
-            id="result-text"
-            class="result-preview"
-            tabindex="0"
-            aria-label="処理結果"
-            translate="no"
-            hidden
-          ></pre>
-          <p id="preview-hint" class="field-hint" hidden></p>
-          <p id="result-error" class="field-error" role="alert" hidden></p>
-          <div class="result-actions">
-            <button id="copy-button" type="button" class="primary-button">
-              <span id="copy-label">コピー</span></button
-            ><button id="save-button" type="button" class="secondary-button">保存</button
-            ><button id="edit-result-button" type="button" class="quiet-button">編集</button>
-          </div>
-          <details id="result-details">
-            <summary>詳細</summary>
-            <p id="result-format"></p>
-            <div id="cli-help"><pre id="cli-command"></pre></div>
-          </details>
         </section>
-      </section>
-      <p class="privacy-caption">内容と秘密鍵は、端末内で処理します。</p>
+        <p class="privacy-caption">
+          <svg class="icon" aria-hidden="true"><use href="#lock" /></svg
+          >内容と秘密鍵は、端末内で処理します。
+        </p>
+      </div>
       <p id="live-status" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></p>
     </main>
+    <footer class="site-footer">
+      <span>ひらくのは、あなただけ。</span>
+      <div>
+        <span>OpenPGP / age</span><span>ログイン不要</span
+        ><a href="https://github.com/ryoshin0830/fumi" target="_blank" rel="noreferrer noopener"
+          >GitHub</a
+        >
+      </div>
+    </footer>
     <dialog id="help-dialog" aria-labelledby="help-title">
       <div class="dialog-header">
         <h2 id="help-title">Fumi</h2>

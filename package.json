@@ -14,6 +14,7 @@
     "dev": "npm run build:client && NEXT_TELEMETRY_DISABLED=1 next dev --hostname 127.0.0.1 --port 3000",
     "start": "NEXT_TELEMETRY_DISABLED=1 next start --hostname 127.0.0.1 --port 3000",
     "test:browser": "node scripts/browser-check.mjs",
+    "test:motion": "node scripts/browser-check.mjs motion",
     "test:cli": "node scripts/check-cli-compatibility.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
