@@ -1,3 +1,5 @@
+import { flowState } from './flow.js';
+import { renderFlow } from './ui/flow.js';
 import { $, size, formatLabel } from './ui/dom.js';
 import { renderResultView } from './ui/result.js';
 import { renderSignatureView } from './ui/signature.js';
@@ -13,6 +15,7 @@ const drafts = {
   signer: { kind: 'text', file: null },
 };
 let mode = 'encrypt';
+const progress = { encrypt: 0, decrypt: 0 };
 let recipient = null;
 let demoKey = null;
 let job = 0;
@@ -69,18 +72,65 @@ function updateButton() {
       $('signer-github').value.trim() &&
       (drafts.signer.kind === 'file' ? drafts.signer.file : valueOf('signer')?.trim()),
     );
-  $('run-button').disabled = busy || !exists || !keyExists || !signerReady;
+  const state = flowState({
+    mode,
+    step: progress[mode],
+    contentReady: exists && (mode === 'encrypt' || Boolean(detectFormat(content))),
+    recipientReady: Boolean(recipient?.format && recipient[recipient.format]?.length),
+    secretReady: keyExists,
+    signerReady,
+  });
+  progress[mode] = state.step;
   if (!busy)
     $('run-label').textContent =
-      mode === 'encrypt'
-        ? signing
-          ? '署名して暗号化'
-          : recipient?.format
-            ? `${recipient.format === 'pgp' ? 'OpenPGP' : 'age'}で暗号化`
-            : '暗号化する'
-        : '復号する';
+      mode === 'encrypt' ? (signing ? '署名して暗号化' : '暗号化する') : '元の内容を開く';
   $('run-button').classList.toggle('complete', Boolean(drafts[mode].result));
   updateDeliveryHint();
+  const contentSummary =
+    drafts[mode].kind === 'file' ? drafts[mode].file?.name || 'ファイル' : 'メッセージ';
+  const person = recipient?.sample
+    ? 'お試し用の相手'
+    : recipient?.username
+      ? '@' + recipient.username
+      : '指定した公開鍵の持ち主';
+  $('review-content').textContent =
+    drafts.encrypt.kind === 'file'
+      ? `${drafts.encrypt.file?.name || 'ファイル'} · ${size(drafts.encrypt.file?.bytes.length || 0)}`
+      : '「' +
+        Array.from($('encrypt-text').value.slice(0, 80))
+          .slice(0, 32)
+          .join('')
+          .replace(/\s+/g, ' ') +
+        ($('encrypt-text').value.length > 32 ? '…' : '') +
+        '」';
+  $('review-recipient').textContent = person;
+  const bundle =
+    signing &&
+    (recipient?.format === 'ssh' ||
+      (Boolean(valueOf('signer')) && signingKeyType(valueOf('signer')) === 'ssh'));
+  $('review-opening').textContent =
+    (recipient?.format === 'ssh'
+      ? 'age形式で作成します。相手はこのアプリ、またはageで開けます。GPGでは開けません。'
+      : '相手はこのアプリ、またはGPGで開けます。') +
+    (bundle ? ' 署名も同封します。GPG・ageを使う相手は、復号したあとZIPを展開します。' : '');
+  let hint = '';
+  if (state.step === 0 && !state.canNext && exists && mode === 'decrypt')
+    hint = '受け取った暗号文の全文か、暗号化されたファイルを指定してください。';
+  else if (mode === 'encrypt' && state.step === 1 && !state.canNext)
+    hint = '相手の公開鍵を読み込むと、確認に進めます。';
+  else if (state.step === state.count - 1 && !state.canRun)
+    hint =
+      mode === 'encrypt'
+        ? '署名には、あなたのGitHubユーザー名と秘密鍵が必要です。'
+        : 'あなたの秘密鍵を指定すると、開けるようになります。';
+  renderFlow({
+    mode,
+    state,
+    busy,
+    result: drafts[mode].result,
+    summaries: [contentSummary, person, ''],
+    hint,
+  });
 }
 function setBusy(value, label = '処理しています…') {
   busy = value;
@@ -134,13 +184,13 @@ function updateContent(kind) {
     const format = detectFormat(value);
     $('decrypt-content-hint').textContent = format
       ? `${formatLabel(format)} の暗号文`
-      : '形式は自動判別。OpenPGP / age に対応。';
+      : '受け取った暗号文やファイルを、そのまま指定してください。';
     $('secret-hint').textContent =
       format === 'ssh'
         ? '対応するSSH秘密鍵（Ed25519 / RSA）を使います。'
         : format === 'pgp'
           ? '対応するOpenPGP秘密鍵を使います。'
-          : '暗号化に使われた公開鍵に対応する秘密鍵です。';
+          : 'あなたの端末に保管している秘密鍵です。GitHubからは取得できません。';
   }
 }
 function switchMode(next, focus = false) {
@@ -240,7 +290,13 @@ async function withJob(label, action, errorId = 'operation-error') {
                 ? 'decrypt-content-error'
                 : errorId
             : errorId;
+      if (target === 'decrypt-content-error') {
+        progress.decrypt = 0;
+        updateButton();
+      }
       errorAt(target, error.message);
+      $(target).tabIndex = -1;
+      $(target).focus();
     }
   } finally {
     if (id === job) setBusy(false);
@@ -323,10 +379,9 @@ $('main-form').addEventListener('submit', (event) => {
     );
     $('result-title').tabIndex = -1;
     $('result-title').focus({ preventScroll: true });
-    $('result-panel').scrollIntoView({
-      block: 'start',
-      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    });
+    document
+      .querySelector('.operation-tabs')
+      .scrollIntoView({ block: 'start', behavior: 'instant' });
   });
 });
 $('lookup-button').addEventListener('click', () => {
@@ -645,7 +700,9 @@ $('demo-button').addEventListener('click', () =>
       selectKind('secret', 'text');
       updateContent('decrypt');
     }
-    announce('サンプルを準備しました。下のボタンで処理を試せます。');
+    progress[mode] = mode === 'encrypt' ? 2 : 1;
+    updateButton();
+    announce('お試し用の入力を用意しました。下のボタンで処理を試せます。');
   }),
 );
 $('try-decrypt-button').addEventListener('click', () => {
@@ -658,7 +715,9 @@ $('try-decrypt-button').addEventListener('click', () => {
   selectKind('decrypt', 'text');
   selectKind('secret', 'text');
   invalidate('decrypt');
+  progress.decrypt = 1;
   updateContent('decrypt');
+  updateButton();
 });
 $('copy-button').addEventListener('click', async () => {
   const result = drafts[mode].result;
@@ -671,6 +730,7 @@ $('copy-button').addEventListener('click', async () => {
   } catch {
     if (drafts[mode].result !== result) return;
     $('copy-label').textContent = '選択してコピー';
+    $('result-preview-disclosure').open = true;
     $('result-text').focus();
     const selection = getSelection();
     const range = document.createRange();
@@ -693,6 +753,7 @@ $('save-button').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 });
 function reset(which) {
+  progress[which] = 0;
   const kinds = which === 'encrypt' ? ['encrypt', 'signer'] : ['decrypt', 'secret'];
   for (const kind of kinds) {
     $(kind + '-text').value = '';
@@ -753,7 +814,8 @@ for (const type of ['help', 'about']) {
 $('main-form').addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !busy) {
     event.preventDefault();
-    $('main-form').requestSubmit();
+    if (!$('next-button').hidden) $('next-button').click();
+    else $('main-form').requestSubmit();
   }
 });
 document.addEventListener('dragover', (event) => {
@@ -860,3 +922,28 @@ $('retry-verification').addEventListener('click', () => {
 });
 updateSignerFields();
 updateButton();
+
+function changeStep(step) {
+  if (busy) return;
+  progress[mode] = step;
+  clearErrors();
+  updateButton();
+  $('operation-title').focus({ preventScroll: true });
+  document.querySelector('.operation-tabs').scrollIntoView({ block: 'start', behavior: 'instant' });
+  announce($('step-caption').textContent + '、' + $('operation-title').textContent);
+}
+$('next-button').addEventListener('click', () => {
+  if (!$('next-button').disabled) changeStep(progress[mode] + 1);
+});
+$('back-button').addEventListener('click', () => changeStep(progress[mode] - 1));
+for (const button of document.querySelectorAll('[data-go-step]'))
+  button.addEventListener('click', () => changeStep(Number(button.dataset.goStep)));
+$('edit-result-button').addEventListener('click', () => {
+  cancelWork();
+  invalidate();
+  changeStep(progress[mode]);
+});
+$('result-cancel-button').addEventListener('click', () => {
+  cancelWork();
+  announce('GitHubとの照合を中止しました。');
+});

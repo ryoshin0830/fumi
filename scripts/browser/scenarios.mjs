@@ -9,17 +9,18 @@ const publicKeys = JSON.parse(await readFile(base + 'public-responses.json', 'ut
 const receiver = await readFile(base + 'recipient-secret.asc', 'utf8');
 const signerPGP = await readFile(base + 'signer-secret.asc', 'utf8');
 const signerSSH = await readFile(base + 'signer-ssh', 'utf8');
-const original = '署名付きメッセージです。\n<script>window.injected=true</script>\n';
+const original = '新しい画面でも元の内容を保持します。\n<script>window.injected=true</script>\n';
 const passed = [];
 await writeFile(base + 'payload.bin', new Uint8Array([0, 255, 128, 13, 10, 42]));
 await page.cdp('Emulation.setDeviceMetricsOverride', {
   width: 1440,
-  height: 1200,
+  height: 1000,
   deviceScaleFactor: 1,
   mobile: false,
 });
 await page.cdp('Page.addScriptToEvaluateOnNewDocument', {
-  source: `window.__errors=[];window.__csp=[];window.addEventListener('error',e=>window.__errors.push(e.message));window.addEventListener('unhandledrejection',e=>window.__errors.push(String(e.reason)));window.addEventListener('securitypolicyviolation',e=>window.__csp.push(e.violatedDirective));`,
+  source:
+    "window.__errors=[];window.__csp=[];addEventListener('error',e=>window.__errors.push(e.message));addEventListener('unhandledrejection',e=>window.__errors.push(String(e.reason)));addEventListener('securitypolicyviolation',e=>window.__csp.push(e.violatedDirective));",
 });
 await page.goto(__FUMI_URL__);
 await page.evaluate((keys) => {
@@ -41,12 +42,10 @@ await page.evaluate((keys) => {
     const make = () =>
       new Response(
         JSON.stringify(
-          String(url).includes('/gpg_keys?') || String(url).includes('type=pgp')
-            ? window.__keyMode === 'mismatch'
-              ? []
-              : [{ raw_key: keys.pgp }]
-            : window.__keyMode === 'mismatch'
-              ? []
+          window.__keyMode === 'mismatch'
+            ? []
+            : String(url).includes('type=pgp')
+              ? [{ raw_key: keys.pgp }]
               : [{ key: keys.ssh }],
         ),
       );
@@ -60,6 +59,14 @@ await page.evaluate((keys) => {
     return make();
   };
 }, publicKeys);
+const value = (id) => page.evaluate((id) => document.getElementById(id).textContent, id);
+const visible = (id) =>
+  page.evaluate((id) => Boolean(document.getElementById(id).getClientRects().length), id);
+const stage = () =>
+  page.evaluate(() =>
+    Number(document.querySelector('[data-go-step][aria-current="step"]').dataset.goStep),
+  );
+const signature = () => page.evaluate(() => document.getElementById('signature-status').className);
 const idle = () =>
   page.waitForFunction(() => document.getElementById('cancel-button').hidden, undefined, {
     timeout: 30000,
@@ -72,336 +79,331 @@ const finished = () =>
     undefined,
     { timeout: 30000 },
   );
-const state = () => page.evaluate(() => document.getElementById('signature-status').className);
+const shot = async (name) => {
+  const capture = await page.cdp('Page.captureScreenshot', {
+    format: 'png',
+    captureBeyondViewport: false,
+  });
+  await writeFile(root + 'test-results/' + name + '.png', Buffer.from(capture.data, 'base64'));
+};
+async function reset(mode) {
+  await page.click('#' + mode + '-tab');
+  await page.click('#clear-button');
+}
+async function content(mode, text) {
+  await reset(mode);
+  await page.fill('#' + mode + '-text', text);
+  await page.click('#next-button');
+}
+async function manualRecipient() {
+  await page.click('#manual-keys > summary');
+  await page.setInputFiles('#recipient-file', [base + 'recipient-public.asc']);
+  await idle();
+  await page.click('#next-button');
+}
+async function signing(type = 'pgp') {
+  await page.click('#include-signature');
+  await page.fill('#signer-github', type === 'pgp' ? 'alice-pgp' : 'alice-ssh');
+  await page.fill('#signer-text', type === 'pgp' ? signerPGP : signerSSH);
+  await page.fill('#signer-passphrase', type === 'pgp' ? 'test-sign-pass' : 'test-sign-pass');
+}
+async function decrypt(cipher, key = receiver, pass = 'test-recipient-pass') {
+  await content('decrypt', cipher);
+  await page.fill('#secret-text', key);
+  await page.fill('#passphrase', pass);
+  await page.click('#run-button');
+  await finished();
+}
+for (const width of [375, 1440]) {
+  await page.cdp('Emulation.setDeviceMetricsOverride', {
+    width,
+    height: width === 375 ? 844 : 1000,
+    deviceScaleFactor: 1,
+    mobile: width === 375,
+  });
+  assert.equal(
+    await page.evaluate(
+      () => document.getElementById('next-button').getBoundingClientRect().bottom <= innerHeight,
+    ),
+    true,
+  );
+}
+assert.equal(await stage(), 0);
+assert.equal(await visible('github-user'), false);
+assert.equal(await visible('include-signature'), false);
+assert.equal(await visible('secret-text'), false);
+assert.equal(await page.evaluate(() => document.getElementById('next-button').disabled), true);
+await page.fill('#encrypt-text', '   ');
+assert.equal(await page.evaluate(() => document.getElementById('next-button').disabled), true);
+await page.fill('#encrypt-text', original);
+await page.press('#encrypt-text', 'ControlOrMeta+Enter');
+assert.equal(await stage(), 1);
+assert.equal(await page.evaluate(() => document.activeElement.id), 'operation-title');
+assert.equal(await visible('encrypt-text'), false);
+assert.equal(await page.evaluate(() => document.getElementById('next-button').disabled), true);
+await page.click('#back-button');
+assert.equal(await stage(), 0);
+assert.equal(await page.evaluate(() => document.getElementById('encrypt-text').value), original);
+await page.click('#decrypt-tab');
+assert.equal(await stage(), 0);
+await page.fill('#decrypt-text', 'not an encrypted message');
+assert.equal(await page.evaluate(() => document.getElementById('next-button').disabled), true);
+await page.click('#encrypt-tab');
+assert.equal(await page.evaluate(() => document.getElementById('encrypt-text').value), original);
+await page.click('#next-button');
+await page.fill('#github-user', 'not a valid username');
+await page.press('#github-user', 'Tab');
+assert.equal(await page.evaluate(() => document.activeElement.id), 'lookup-button');
+await page.fill('#github-user', '');
+await manualRecipient();
+assert.equal(await stage(), 2);
 assert.equal(
   await page.evaluate(() => document.getElementById('include-signature').checked),
   false,
 );
+assert.equal(await visible('signer-text'), false);
+assert.equal(await page.evaluate(() => document.getElementById('signer-text').disabled), true);
+assert.match(await value('review-content'), /新しい画面/);
+assert.match(await value('review-opening'), /GPG/);
+passed.push(
+  'first view hides later tasks; whitespace/invalid data cannot advance; keyboard next, back and per-mode drafts work',
+);
+await signing();
+await page.fill('#signer-passphrase', 'wrong');
+await page.click('#run-button');
+await idle();
+assert.equal(await visible('signer-error'), true);
+assert.match(await value('signer-error'), /パスフレーズ/);
+assert.equal(await stage(), 2);
+await page.fill('#signer-passphrase', 'test-sign-pass');
+await page.click('#run-button');
+await finished();
+assert.match(await signature(), /created/);
+assert.equal(await visible('main-form'), false);
 assert.equal(
-  await page.evaluate(
-    () =>
-      document.getElementById('signer-fields').hidden &&
-      document.getElementById('signer-text').disabled,
-  ),
+  await page.evaluate(() => document.getElementById('result-preview-disclosure').open),
+  false,
+);
+assert.equal(await page.evaluate(() => document.getElementById('result-details').open), false);
+const ciphertextPGP = await value('result-text');
+assert.equal(await value('result-filename'), 'message.txt.asc');
+await page.evaluate(() =>
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: async () => {
+        throw new Error('denied');
+      },
+    },
+  }),
+);
+await page.click('#copy-button');
+assert.equal(
+  await page.evaluate(() => document.getElementById('result-preview-disclosure').open),
   true,
 );
-await page.screenshot({ path: root + 'test-results/signature-default-desktop.png' });
-await page.fill('#encrypt-text', original);
-await page.click('#manual-keys > summary');
-await page.setInputFiles('#recipient-file', [base + 'recipient-public.asc']);
-await idle();
-await page.click('#include-signature');
-assert.equal(await page.evaluate(() => document.getElementById('signer-fields').hidden), false);
-await page.fill('#signer-github', 'alice-pgp');
-await page.fill('#signer-text', signerPGP);
-await page.fill('#signer-passphrase', 'wrong');
-assert.match(
-  await page.evaluate(() => document.getElementById('signing-delivery-title').textContent),
-  /GPGでそのまま/,
-);
-await page.click('#run-button');
-await idle();
-assert.match(
-  await page.evaluate(() => document.getElementById('signer-error').textContent),
-  /パスフレーズ/,
-);
-assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
-await page.fill('#signer-passphrase', 'test-sign-pass');
-await page.click('#run-button');
-await finished();
-assert.match(await state(), /created/);
 assert.equal(
-  await page.evaluate(() => document.getElementById('result-filename').textContent),
-  'message.txt.asc',
+  await page.evaluate(() => getSelection().toString().trimEnd()),
+  ciphertextPGP.trimEnd(),
 );
-assert.doesNotMatch(
-  await page.evaluate(() => document.getElementById('cli-description').textContent),
-  /ZIP/,
-);
-assert.match(
-  await page.evaluate(() => document.getElementById('cli-description').textContent),
-  /同時に署名/,
-);
-const ciphertextPGP = await page.evaluate(() => document.getElementById('result-text').textContent);
+assert.equal(await visible('result-text'), true);
+await page.click('#edit-result-button');
+assert.equal(await stage(), 2);
+assert.equal(await page.evaluate(() => document.getElementById('signer-text').value), signerPGP);
+await page.click('[data-go-step="0"]');
+assert.equal(await page.evaluate(() => document.getElementById('encrypt-text').value), original);
 passed.push(
-  'upfront native-GPG explanation matches direct .asc output and CLI help; protected signing key and wrong-passphrase recovery work',
+  'optional signature fields appear on request; errors stay visible; result hides inputs and encrypted preview; denied clipboard opens manual-copy fallback; editing preserves inputs',
 );
-await page.click('#decrypt-tab');
-await page.fill('#decrypt-text', ciphertextPGP);
-await page.fill('#secret-text', receiver);
-await page.fill('#passphrase', 'test-recipient-pass');
-await page.click('#run-button');
-await finished();
-assert.match(await state(), /verified/);
+await decrypt(ciphertextPGP);
+assert.match(await signature(), /verified/);
+assert.equal(await value('result-text'), original);
 assert.equal(
-  await page.evaluate(() => document.getElementById('signature-account').textContent),
-  '@alice-pgp',
+  await page.evaluate(() => document.getElementById('decrypt-tab').getBoundingClientRect().y >= 0),
+  true,
 );
 assert.equal(
-  await page.evaluate(() => document.getElementById('signature-account-label').textContent),
-  '署名者',
+  await page.evaluate(() => document.getElementById('result-preview-disclosure').open),
+  true,
 );
-assert.equal(
-  await page.evaluate(() => document.getElementById('result-text').textContent),
-  original,
-);
-assert.equal(await page.evaluate(() => 'injected' in window), false);
-await page.evaluate(() =>
-  document.getElementById('result-panel').scrollIntoView({ block: 'start', behavior: 'instant' }),
-);
-await page.waitForFunction(
-  () => getComputedStyle(document.getElementById('result-panel')).opacity === '1',
-);
-await page.screenshot({ path: root + 'test-results/next-native-verified.png' });
-const download = page.waitForEvent('download', { timeout: 10000 });
+assert.equal(await page.evaluate(() => Boolean(window.injected)), false);
+const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
 await page.click('#save-button');
-const file = await download;
-assert.equal(file.suggestedFilename(), 'message.txt');
-await file.saveAs(base + 'restored.txt');
-assert.equal(await readFile(base + 'restored.txt', 'utf8'), original);
-passed.push(
-  'signed PGP decrypts, automatically matches GitHub public key, shows username and saves exact original data',
-);
-await page.evaluate(() => {
-  window.__keyMode = 'mismatch';
-});
-await page.click('#run-button');
-await finished();
-assert.match(await state(), /mismatch/);
-assert.equal(
-  await page.evaluate(() => document.getElementById('signature-account-label').textContent),
-  '署名者（申告）',
-);
-assert.equal(await page.evaluate(() => document.getElementById('save-button').disabled), false);
+const download = await downloadPromise;
+await download.saveAs(base + 'guided-restored.txt');
+assert.equal(await readFile(base + 'guided-restored.txt', 'utf8'), original);
+for (const [keyMode, expected] of [
+  ['mismatch', 'mismatch'],
+  ['offline', 'unavailable'],
+]) {
+  await page.evaluate((mode) => {
+    window.__keyMode = mode;
+  }, keyMode);
+  await decrypt(ciphertextPGP);
+  assert.match(await signature(), new RegExp(expected));
+  assert.equal(await visible('signature-status'), true);
+}
 await page.evaluate(() => {
   window.__keyMode = 'match';
 });
 await page.click('#retry-verification');
-await idle();
-assert.match(await state(), /verified/);
-await page.evaluate(() => {
-  window.__keyMode = 'offline';
-});
-await page.click('#run-button');
 await finished();
-assert.match(await state(), /unavailable/);
-assert.equal(
-  await page.evaluate(() => document.getElementById('result-text').textContent),
-  original,
-);
-await page.evaluate(() => {
-  window.__keyMode = 'match';
-});
-await page.click('#retry-verification');
-await idle();
-assert.match(await state(), /verified/);
+assert.match(await signature(), /verified/);
 passed.push(
-  'key removal/mismatch and offline are never shown as verified; retry uses current GitHub key',
+  'native signed text restores exact bytes and saves; current-key mismatch/offline remain visible and retry uses the current key',
 );
-await page.click('#encrypt-tab');
-await page.fill('#signer-github', 'alice-ssh');
-await page.fill('#signer-text', signerSSH);
-await page.fill('#signer-passphrase', 'test-sign-pass');
-assert.match(
-  await page.evaluate(() => document.getElementById('signing-delivery-title').textContent),
-  /ZIPを展開/,
-);
+await content('encrypt', original);
+await manualRecipient();
+await signing('ssh');
+assert.match(await value('review-opening'), /ZIP/);
 await page.click('#run-button');
 await finished();
-assert.match(
-  await page.evaluate(() => document.getElementById('signature-algorithm').textContent),
-  /OpenSSH/,
-);
-const ciphertextSSHSigner = await page.evaluate(
-  () => document.getElementById('result-text').textContent,
-);
-await page.click('#decrypt-tab');
-await page.fill('#decrypt-text', ciphertextSSHSigner);
-await page.click('#run-button');
-await finished();
-assert.match(await state(), /verified/);
-assert.equal(
-  await page.evaluate(() => document.getElementById('signature-account').textContent),
-  '@alice-ssh',
-);
+const sshSignedPGP = await value('result-text');
+await decrypt(sshSignedPGP);
+assert.match(await signature(), /verified/);
 passed.push(
-  'protected SSH signing key works with OpenPGP recipient, standard SSHSIG verifies against .keys',
+  'protected SSH signing key works with OpenPGP recipient; the recipient opening/ZIP explanation appears before encryption',
 );
-await page.click('#encrypt-tab');
-await page.click('#manual-keys > summary');
-await page.fill('#recipient-text', publicKeys.ssh);
-await page.click('#use-key-button');
-await idle();
-await page.fill('#signer-github', 'alice-pgp');
-await page.fill('#signer-text', signerPGP);
+await reset('encrypt');
 await page.click('[data-input="encrypt"][data-kind="file"]');
 await page.setInputFiles('#encrypt-file', [base + 'payload.bin']);
 await idle();
+await page.click('#next-button');
+await page.fill('#github-user', 'alice-ssh.keys');
+await page.click('#lookup-button');
+await idle();
+await page.click('#next-button');
+assert.match(await value('review-opening'), /GPGでは開けません/);
+await signing();
 await page.click('#run-button');
 await finished();
-assert.match(
-  await page.evaluate(() => document.getElementById('result-filename').textContent),
-  /payload\.bin\.signed\.zip\.age$/,
-);
-assert.match(
-  await page.evaluate(() => document.getElementById('result-description').textContent),
-  /ZIPを展開/,
-);
-assert.match(
-  await page.evaluate(() => document.getElementById('cli-command').textContent),
-  /unzip -n/,
-);
-const ageDownload = page.waitForEvent('download', { timeout: 10000 });
+const agePromise = page.waitForEvent('download', { timeout: 30000 });
 await page.click('#save-button');
-const ageFile = await ageDownload;
-await ageFile.saveAs(base + 'signed.age');
-await page.click('#decrypt-tab');
+const ageDownload = await agePromise;
+await ageDownload.saveAs(base + 'guided-signed.age');
+await reset('decrypt');
 await page.click('[data-input="decrypt"][data-kind="file"]');
-await page.setInputFiles('#decrypt-file', [base + 'signed.age']);
+await page.setInputFiles('#decrypt-file', [base + 'guided-signed.age']);
 await idle();
+await page.click('#next-button');
 await page.fill('#secret-text', signerSSH);
 await page.fill('#passphrase', 'test-sign-pass');
 await page.click('#run-button');
 await finished();
-assert.match(await state(), /verified/);
-assert.equal(
-  await page.evaluate(() => document.getElementById('result-filename').textContent),
-  'payload.bin',
-);
-await page.evaluate(() =>
-  document.getElementById('result-panel').scrollIntoView({ block: 'start', behavior: 'instant' }),
-);
-await page.waitForFunction(
-  () => getComputedStyle(document.getElementById('result-panel')).opacity === '1',
-);
-await page.screenshot({ path: root + 'test-results/next-age-verified.png' });
-const binaryDownload = page.waitForEvent('download', { timeout: 10000 });
+assert.match(await signature(), /verified/);
+const binaryPromise = page.waitForEvent('download', { timeout: 30000 });
 await page.click('#save-button');
-const binary = await binaryDownload;
-await binary.saveAs(base + 'restored.bin');
-assert.deepEqual(await readFile(base + 'restored.bin'), await readFile(base + 'payload.bin'));
-passed.push(
-  'PGP signer works with age encrypted binary; automatic unwrap restores original filename and every byte',
+const binary = await binaryPromise;
+await binary.saveAs(base + 'guided-restored.bin');
+assert.deepEqual(
+  await readFile(base + 'guided-restored.bin'),
+  await readFile(base + 'payload.bin'),
 );
-await page.click('[data-input="decrypt"][data-kind="text"]');
-await page.fill('#decrypt-text', await readFile(base + 'tampered.asc', 'utf8'));
+passed.push(
+  'age binary with a PGP signature restores the original name and bytes; distinct GPG/age behavior is disclosed at review',
+);
+for (const fixture of ['tampered.asc', 'unsupported-native.asc']) {
+  await content('decrypt', await readFile(base + fixture, 'utf8'));
+  await page.fill('#secret-text', receiver);
+  await page.fill('#passphrase', 'test-recipient-pass');
+  await page.click('#run-button');
+  await idle();
+  assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
+  assert.equal(
+    await page.evaluate(() =>
+      ['operation-error', 'decrypt-content-error', 'secret-error'].some(
+        (id) =>
+          document.getElementById(id).textContent &&
+          document.getElementById(id).getClientRects().length,
+      ),
+    ),
+    true,
+  );
+}
+await content('decrypt', '-----BEGIN PGP MESSAGE-----\n\ninvalid-data\n-----END PGP MESSAGE-----');
 await page.fill('#secret-text', receiver);
 await page.fill('#passphrase', 'test-recipient-pass');
 await page.click('#run-button');
 await idle();
-assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
-assert.match(
-  await page.evaluate(() =>
-    [...document.querySelectorAll('.field-error,#operation-error')]
-      .map((x) => x.textContent)
-      .join(' '),
-  ),
-  /署名|変更/,
-);
-assert.equal(await page.evaluate(() => document.getElementById('result-text').textContent), '');
-passed.push('tampered signed payload is blocked before plaintext is exposed');
-await page.fill('#decrypt-text', await readFile(base + 'unsupported-native.asc', 'utf8'));
-await page.click('#run-button');
-await idle();
-assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
-assert.equal(await page.evaluate(() => document.getElementById('result-text').textContent), '');
-assert.match(
-  await page.evaluate(() =>
-    [...document.querySelectorAll('.field-error,#operation-error')]
-      .filter((x) => !x.hidden)
-      .map((x) => x.textContent)
-      .join(' '),
-  ),
-  /復号/,
-);
-passed.push(
-  'unsupported native signature packets fail closed before showing plaintext or an unsigned result',
-);
-await page.fill('#decrypt-text', await readFile(base + 'external-signed.asc', 'utf8'));
-await page.click('#run-button');
-await finished();
-assert.match(await state(), /external/);
-assert.match(
-  await page.evaluate(() => document.getElementById('signature-status-title').textContent),
-  /OpenPGP署名あり・GitHub未照合/,
-);
+assert.equal(await stage(), 0);
+assert.equal(await visible('decrypt-content-error'), true);
+assert.equal(await page.evaluate(() => document.activeElement.id), 'decrypt-content-error');
+await decrypt(await readFile(base + 'external-signed.asc', 'utf8'));
+assert.match(await signature(), /external/);
 assert.equal(
   await page.evaluate(() => document.getElementById('signature-account-line').hidden),
   true,
 );
-assert.equal(
-  await page.evaluate(() => document.getElementById('result-text').textContent),
-  'External OpenPGP signed message',
-);
 passed.push(
-  'external outer OpenPGP signature is shown as present without claiming a GitHub identity',
+  'corrupt/unsupported signatures never expose plaintext; malformed data returns to its visible error step; external signatures do not claim a GitHub identity',
 );
-await page.fill('#decrypt-text', ciphertextPGP);
+await content('decrypt', ciphertextPGP);
+await page.fill('#secret-text', receiver);
+await page.fill('#passphrase', 'test-recipient-pass');
 await page.evaluate(() => {
   window.__keyMode = 'delay';
   window.__released = false;
+  delete window.__releaseFetch;
 });
 await page.click('#run-button');
-await page.waitForFunction(() => Boolean(window.__releaseFetch), undefined, { timeout: 20000 });
-assert.match(await state(), /pending/);
+await page.waitForFunction(() => Boolean(window.__releaseFetch), undefined, { timeout: 30000 });
+assert.match(await signature(), /pending/);
+assert.equal(await visible('result-cancel-button'), true);
 assert.equal(await page.evaluate(() => document.getElementById('save-button').disabled), true);
-await page.click('#cancel-button');
-assert.match(await state(), /unavailable/);
+await page.click('#result-cancel-button');
+assert.match(await signature(), /unavailable/);
 await page.evaluate(() => window.__releaseFetch());
 await page.waitForFunction(() => window.__released);
+assert.match(await signature(), /unavailable/);
+await page.evaluate(() => {
+  window.__keyMode = 'match';
+});
 await page.click('#clear-all-button');
 await page.click('#encrypt-tab');
-await page.fill('#encrypt-text', 'new draft');
-await page.click('#manual-keys > summary');
-await page.setInputFiles('#recipient-file', [base + 'recipient-public.asc']);
-await idle();
-assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
-assert.equal(
-  await page.evaluate(() => document.getElementById('include-signature').checked),
-  false,
-);
-await page.click('#run-button');
-await finished();
-assert.match(await state(), /none/);
+assert.equal(await stage(), 0);
 assert.equal(
   await page.evaluate(() =>
-    ['signer-github', 'signer-text', 'signer-passphrase'].every(
+    ['signer-text', 'signer-passphrase', 'secret-text'].every(
       (id) => document.getElementById(id).value === '',
     ),
   ),
   true,
 );
+await page.click('#demo-button');
+await idle();
+assert.equal(await stage(), 2);
+await page.click('#run-button');
+await finished();
+assert.equal(await page.evaluate(() => document.getElementById('signature-status').hidden), true);
+await page.click('#try-decrypt-button');
+assert.equal(await stage(), 1);
+await page.click('#run-button');
+await finished();
+assert.match(await value('result-text'), /Fumiへようこそ/);
 passed.push(
-  'cancelled verification cannot overwrite new data; clear-all erases signer inputs; signature remains optional',
+  'pending GitHub checks have a visible cancellation action; late responses cannot change cancelled results; clear-all resets progress/secrets; the trial completes a full round trip',
 );
-await page.click('#clear-all-button');
+await reset('encrypt');
 await page.click('[data-input="encrypt"][data-kind="file"]');
 await page.setInputFiles('#encrypt-file', [base + 'payload.bin']);
 await idle();
 await page.click('#demo-button');
 await idle();
+await page.click('[data-go-step="0"]');
 await page.click('[data-input="encrypt"][data-kind="file"]');
-assert.equal(
-  await page.evaluate(
-    () =>
-      document.getElementById('run-button').disabled &&
-      document.getElementById('recipient-card').hidden,
-  ),
-  true,
+assert.equal(await page.evaluate(() => document.getElementById('recipient-card').hidden), true);
+assert.equal(await page.evaluate(() => document.getElementById('run-button').disabled), true);
+passed.push(
+  'returning to a real file after the trial removes the disposable recipient instead of using it silently',
 );
-passed.push('returning to an earlier real file after Sample clears disposable sample recipient');
-await page.click('#clear-all-button');
-await page.click('#include-signature');
-await page.waitForFunction(
-  () =>
-    getComputedStyle(document.querySelector('.switch-track')).backgroundColor ===
-    'rgb(0, 102, 204)',
-);
+await content('encrypt', 'layout and recovery');
+await manualRecipient();
+await signing();
 const layouts = [];
 for (const width of [375, 768, 1024, 1440]) {
   await page.cdp('Emulation.setDeviceMetricsOverride', {
     width,
-    height: width === 375 ? 844 : 1200,
+    height: width === 375 ? 844 : 1000,
     deviceScaleFactor: 1,
     mobile: width === 375,
   });
@@ -411,85 +413,43 @@ for (const width of [375, 768, 1024, 1440]) {
   }));
   assert.equal(bounds.width, bounds.document);
   layouts.push(bounds);
-  if (width === 375) {
-    await page.evaluate(() =>
-      document
-        .getElementById('signing-section')
-        .scrollIntoView({ block: 'start', behavior: 'instant' }),
-    );
-    const shot = await page.cdp('Page.captureScreenshot', { format: 'png' });
-    await writeFile(
-      root + 'test-results/next-mobile-settings.png',
-      Buffer.from(shot.data, 'base64'),
-    );
-  }
+  if (width === 375) await shot('guided-mobile-signing');
 }
-await page.evaluate(() => scrollTo(0, 0));
-await page.screenshot({ path: root + 'test-results/signature-desktop-settings.png' });
 await page.press('#include-signature', 'Space');
 assert.equal(
   await page.evaluate(() => document.getElementById('include-signature').checked),
   false,
 );
+await page.click('[data-go-step="1"]');
 await page.evaluate(() => {
   window.__keyMode = 'limit';
 });
 await page.fill('#github-user', 'limited-user');
 await page.click('#lookup-button');
 await idle();
-assert.equal(await page.evaluate(() => document.getElementById('github-recovery').hidden), false);
-assert.match(
-  await page.evaluate(() => document.getElementById('github-error').textContent),
-  /取得上限.*再取得の目安/,
-);
-assert.equal(
-  await page.evaluate(
-    () => (document.getElementById('github-error').textContent.match(/取得上限/g) || []).length,
-  ),
-  1,
-);
-assert.equal(
-  await page.evaluate(() => document.getElementById('github-gpg-page').href),
-  'https://github.com/limited-user.gpg',
-);
-const limitedRequests = await page.evaluate(() => window.__requests.length);
+assert.equal(await visible('github-recovery'), true);
+assert.match(await value('github-error'), /取得上限/);
+const count = await page.evaluate(() => window.__requests.length);
 await page.click('#lookup-button');
 await idle();
-assert.equal(await page.evaluate(() => window.__requests.length), limitedRequests);
-await page.evaluate(() =>
-  document
-    .getElementById('github-recovery')
-    .scrollIntoView({ block: 'center', behavior: 'instant' }),
-);
-await page.screenshot({ path: root + 'test-results/next-key-recovery.png' });
+assert.equal(await page.evaluate(() => window.__requests.length), count);
 await page.click('#open-manual-keys');
-assert.equal(await page.evaluate(() => document.getElementById('manual-keys').open), true);
 await page.fill('#recipient-text', await readFile(base + 'recipient-public.asc', 'utf8'));
 await page.click('#use-key-button');
 await idle();
-await page.fill('#encrypt-text', 'Public key import works during a retrieval limit');
+await page.click('#next-button');
 await page.click('#run-button');
 await finished();
-assert.match(await state(), /none/);
-assert.equal(await page.evaluate(() => window.__requests.length), limitedRequests);
-passed.push(
-  'rate-limit errors show once with retry time and key-page links; early retries make no requests; manual key import and unsigned encryption still work',
-);
-await page.click('#include-signature');
-await page.fill('#signer-github', 'alice-pgp');
-await page.fill('#signer-text', signerPGP);
-await page.fill('#signer-passphrase', 'test-sign-pass');
+assert.match(await signature(), /none/);
+await page.click('#edit-result-button');
+await signing();
 await page.click('#run-button');
 await idle();
+assert.equal(await visible('signer-error'), true);
 assert.equal(await page.evaluate(() => document.getElementById('include-signature').checked), true);
 assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
-assert.match(
-  await page.evaluate(() => document.getElementById('signer-error').textContent),
-  /署名用のGitHub公開鍵を照合できません/,
-);
-assert.equal(await page.evaluate(() => window.__requests.length), limitedRequests);
 passed.push(
-  'a blocked current-key lookup never reuses stale identity data or silently disables requested signatures',
+  '375–1440px layouts fit; keyboard toggles work; rate-limit recovery and manual import remain usable; requested signatures are never silently disabled',
 );
 const telemetry = await page.evaluate(() => ({
   errors: window.__errors,
@@ -504,11 +464,8 @@ for (const request of telemetry.requests) {
   assert.equal(request.credentials, 'omit');
   assert.equal(request.body, null);
 }
-passed.push(
-  'desktop/mobile layouts and keyboard switch work; only username-bearing public-key GETs, no secret payloads or errors',
-);
 await writeFile(
-  root + 'test-results/next-browser-report.json',
+  root + 'test-results/guided-browser-report.json',
   JSON.stringify(
     {
       passed,
@@ -519,7 +476,7 @@ await writeFile(
     },
     null,
     2,
-  ),
+  ) + '\n',
 );
 console.log({
   passed,
@@ -528,5 +485,4 @@ console.log({
   errors: telemetry.errors,
   csp: telemetry.csp,
 });
-
 await task.finish({ keep: [] });

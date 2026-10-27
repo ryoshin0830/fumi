@@ -8,13 +8,12 @@ export function renderResultView(result, mode) {
   const encrypt = mode === 'encrypt';
   const bundled = result.encoding === 'signed-zip';
   const native = result.encoding === 'native-pgp';
+  $('result-preview-disclosure').hidden = result.text === null;
+  $('result-preview-disclosure').open = !encrypt;
+  $('result-preview-label').textContent = encrypt ? '暗号文を表示' : '元のテキスト';
   $('result-title').textContent = encrypt ? '暗号化できました' : '元のデータに戻せました';
   $('result-description').textContent = encrypt
-    ? bundled
-      ? '相手は復号したあと、ZIPを展開して開きます。'
-      : native
-        ? 'GPGでそのまま開ける、署名付きの暗号文です。'
-        : '保存・コピーして、相手に渡せます。'
+    ? '暗号化したデータを保存・コピーして、相手に渡してください。'
     : result.text === null
       ? 'ファイルを保存して内容を確認できます。'
       : 'テキストを表示しています。';
@@ -30,12 +29,12 @@ export function renderResultView(result, mode) {
   $('copy-button').hidden = result.text === null;
   $('result-note').textContent = encrypt
     ? bundled
-      ? 'ZIPのcontentフォルダに元ファイル、README.txtに署名の確認手順が入ります。このアプリでは自動で取り出します。'
+      ? '相手はこのアプリで開けます。GPG・ageを使う場合は、復号したあとZIPを展開すると元のファイルと署名の説明書があります。'
       : native
         ? 'GPGでは元データを直接取り出せます。署名の検証には、署名者の公開鍵の登録が必要です。'
         : result.format === 'ssh'
-          ? 'age形式です。受け取る側は、このアプリの「復号」またはageで開けます。'
-          : '受け取る側は、このアプリの「復号」またはGPGで開けます。'
+          ? 'age形式です。受け取る側は、このアプリの「受け取って開く」またはageで開けます。'
+          : '受け取る側は、このアプリの「受け取って開く」またはGPGで開けます。'
     : result.verification
       ? '復号したデータと、署名者の照合結果をそれぞれ確認できます。'
       : '元のデータを変更せず取り出しました。';
