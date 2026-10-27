@@ -40,7 +40,6 @@ export async function legacyEncrypt(payload) {
             container: Boolean(signed),
           });
   result.format = format;
-  result.originalFilename = safeFilename(filename);
   result.filename = storedName + (format === 'pgp' ? (armored ? '.asc' : '.gpg') : '.age');
   if (signed) {
     result.verification = signed.verification;

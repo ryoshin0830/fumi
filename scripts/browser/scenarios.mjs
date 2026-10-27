@@ -213,6 +213,19 @@ assert.equal(
 passed.push('edit and switching operations preserve separate drafts and keys');
 await clear();
 await page.fill('#encrypt-text', original);
+await page.fill('#github-user', 'https://example.com/receiver');
+const beforeInvalidRecipient = await page.evaluate(() => window.__requests.length);
+await page.click('#run-button');
+await idle();
+assert.equal(await visible('recipient-error'), true);
+assert.equal(await visible('result-panel'), false);
+assert.equal(await page.evaluate(() => window.__requests.length), beforeInvalidRecipient);
+assert.equal(await page.evaluate(() => document.getElementById('encrypt-text').value), original);
+passed.push(
+  'invalid GitHub recipients preserve the draft and are rejected before any network request',
+);
+await clear();
+await page.fill('#encrypt-text', original);
 await page.fill('#github-user', 'wrong recipient');
 await advanced();
 await page.fill('#recipient-text', keys.recipient);

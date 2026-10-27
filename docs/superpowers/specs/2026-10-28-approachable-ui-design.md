@@ -1,6 +1,6 @@
 # Fumi: minimum useful interface
 
-Status: revised from the user's UI review. Implement directly on `codex/approachable-ui` and update Draft PR#1. Final merge still waits for user review.
+Status: revised from the user's UI review. Implement directly on `codex/approachable-ui` and update Draft PR#1. The user subsequently authorized merging after code review and E2E verification.
 
 ## Product decision
 

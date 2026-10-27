@@ -54,7 +54,6 @@ self.onmessage = async ({ data: { id, action, payload } }) => {
           ? await encryptPGP({ data, recipients, filename: storedName, armored })
           : await encryptAge({ data, recipients, armored });
       result.format = format;
-      result.originalFilename = storedName;
       result.filename = storedName + (format === 'pgp' ? (armored ? '.asc' : '.gpg') : '.age');
     } else if (action === 'decrypt') {
       const { data, privateKey, passphrase, sourceName } = payload;

@@ -1,7 +1,7 @@
-import { $, size } from './ui/dom.js';
+import { $ } from './ui/dom.js';
 import { renderResultView } from './ui/result.js';
 import { renderSignatureView } from './ui/signature.js';
-import { resolveGitHub, parseGitHub, clearGitHubKeyCache } from './recipients.js';
+import { resolveGitHub, clearGitHubKeyCache } from './recipients.js';
 import { runCrypto, cancelCrypto } from './worker-client.js';
 import { MAX_BYTES, MAX_ENCRYPTED_BYTES, MAX_KEY_BYTES, byteLength } from './limits.js';
 
@@ -154,7 +154,6 @@ async function resolveRecipient(current) {
             },
       );
     } else {
-      parseGitHub($('github-user').value);
       controller = new AbortController();
       $('run-label').textContent = '鍵を取得中…';
       source = await resolveGitHub($('github-user').value, {

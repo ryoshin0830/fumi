@@ -63,15 +63,21 @@ Files: `scripts/legacy-encryption.mjs`, worker and native CLI compatibility test
 - [x] Inspect375/768/1024/1440px, keyboard and short-window results. Update the retained review screenshots and current docs to describe this final interface.
 - [x] Review the connected code and fix concrete findings. Leave the local Chrome preview open.
 
-Delivery continues in Draft PR#1: update its title/body to the final change, wait for the new CI/Vercel checks, and leave main unmerged.
+The user authorized merging PR#1 after the final review and E2E checks. Require successful CI/Vercel checks on the final head before merging.
 
 ## Local evidence
 
 - Removal checks were observed failing before implementation and passing afterward.
 - `npm run format:check` and `npm run build` passed. Web HTML70 KiB, standalone9.54 MiB.
-- `GO=/tmp/dgpg-go-toolchain/go/bin/go npm test`:168 passed,0 failed.
+- `GO=/tmp/dgpg-go-toolchain/go/bin/go npm test`:170 passed,0 failed.
 - Native GPG/age compatibility:12 cases passed, including production-worker reads of legacy signed fixtures.
-- Browser:7 scenario groups passed;375/768/1024/1440px, no horizontal overflow, zero JavaScript/CSP errors,11 bodyless credential-free public-key GETs.
+- Browser:9 scenario groups passed against the production build;375/768/1024/1440px, no horizontal overflow, zero JavaScript/CSP errors,15 bodyless credential-free public-key GETs.
 - Focused checks cover full ciphertext copying, denied clipboard and successful retry, file bytes, manual-key source, draft retention, legacy signature states, verification cancellation/late responses, tampering rejection, rate limits and cancellation. Keyboard operation tabs and mobile advanced/decrypt layouts also inspected.
 - Independent connected-code review findings fixed and re-reviewed: stale copy error, missing pending-verification cancellation regression.
 - Chrome local preview: `http://127.0.0.1:3001/`.
+
+## Pre-merge review
+
+Two independent read-only reviewers checked the full PR against main, including connected UI/worker/server callers. Neither found a correctness, data-loss or security blocker. Removed the unused `size` import and `originalFilename` result field, and delegated duplicate username validation to `resolveGitHub`, which rejects invalid input before fetching. Added a browser check proving that invalid recipients preserve drafts and make no network request. The focused cleanup was re-reviewed.
+
+Rebuilt and tested the final runtime: formatting/build passed,170 Node tests passed,12 native CLI cases passed, and9 Chromium E2E scenario groups passed at `http://127.0.0.1:3002/`. Production-build public-key lookup also returns an empty array for the actual GitHub no-GPG response. Verification assumes a public utility with cryptography in each browser; concurrent-load and non-Chromium browser execution were not performed.
