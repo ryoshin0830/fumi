@@ -1,6 +1,6 @@
 # Fumi: a calmer first-time experience
 
-Status: proposed for user review. Implementation has not started.
+Status: implementation authorized by the user's follow-up instruction to finish the changes, run locally, and open Chrome. Final merge review remains separate.
 
 ## Goal and review boundary
 
@@ -98,4 +98,4 @@ Keep restarting the current task as a secondary action. Move clearing both opera
 
 ## User review
 
-Approve this direction or identify the interaction to change before implementation planning begins. The separate final merge review remains required.
+The user has instructed implementation to continue. Deliver a running local preview in Chrome for their review. The separate final merge review remains required.
