@@ -364,31 +364,26 @@ select {
   margin-bottom: 8px;
 }
 .recipient-preview {
-  margin-top: 6px;
+  margin-top: 8px;
 }
-.recipient-card {
+.recipient-summary {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  border: 1px solid #e4e8ed;
-  border-radius: 14px;
-  background: #f7f9fc;
-  text-decoration: none;
-  color: inherit;
+  gap: 10px;
+  padding: 2px 12px;
 }
 .recipient-avatar-wrap {
   position: relative;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   overflow: hidden;
   background: #e3edfa;
   color: #004c99;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
 }
 .recipient-avatar-wrap img {
@@ -406,21 +401,20 @@ select {
 }
 .recipient-identity strong {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 #recipient-login {
   color: var(--secondary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 #recipient-bio {
   display: none;
-}
-.profile-arrow {
-  width: 16px;
-  color: var(--secondary);
-  transform: rotate(-45deg);
 }
 .recipient-status {
   color: var(--secondary);
@@ -757,11 +751,6 @@ summary:hover {
     transform: translateY(0);
   }
 }
-@media (hover: hover) and (pointer: fine) {
-  .recipient-card:hover {
-    border-color: #9fb8d8;
-  }
-}
 @media (max-width: 1000px) {
   .app-shell {
     gap: 24px;
@@ -850,8 +839,7 @@ summary:hover {
   }
 }
 @media (prefers-contrast: more) {
-  .tool-shell,
-  .recipient-card {
+  .tool-shell {
     border-color: var(--secondary);
   }
 }
@@ -1106,6 +1094,29 @@ dialog details {
 }
 .result-content .result-preview {
   overscroll-behavior: auto;
+}
+.terminal-tips {
+  flex-shrink: 0;
+  margin-top: 8px;
+  color: var(--secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.terminal-tips summary {
+  min-height: 44px;
+}
+.terminal-tips p {
+  margin-bottom: 8px;
+}
+#terminal-command {
+  margin: 0 0 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f5f5f7;
+  color: #1d1d1f;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 .delivery-guide {
   display: flex;

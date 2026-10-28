@@ -10,7 +10,7 @@ The interface combines an Apple-inspired introduction with a directly usable enc
 - Header: Fumi, 「すべて消去」 and help. Clear removes inputs, keys and results from both modes.
 - A short privacy caption. Detailed limits, licensing and background live in help.
 
-The short introduction sits beside the tool on desktop and above it on taller mobile screens. Hide the introduction on short mobile screens to preserve space for the form. Keep visible labels even when reducing prose. A debounced GitHub preview shows public name, avatar and login. Profile information remains advisory; encryption validates the selected keys before use.
+The short introduction sits beside the tool on desktop and above it on taller mobile screens. Hide the introduction on short mobile screens to preserve space for the form. Keep visible labels even when reducing prose. A debounced GitHub preview shows public name, avatar and login in a compact passive row below the username. It has no card surface, border, arrow, link, hover treatment or keyboard stop, so it does not resemble a recipient-confirmation action. Profile information remains advisory; encryption validates the selected keys before use.
 
 ## Progressive disclosure
 
@@ -20,7 +20,9 @@ Manual GPG armor/binary and SSH Ed25519/RSA keys use automatic format detection;
 
 Decryption inputs settle for 600ms before a single local attempt. Protected GPG and SSH keys return the typed `PASSPHRASE_REQUIRED` condition, which reveals the password field with a plain-language explanation. Wrong/malformed keys and damaged ciphertext remain ordinary errors. Password typing does not launch expensive guesses. Changing ciphertext or secret key clears the old password and check; Edit does not resubmit. Cancel, file-read cancellation, clear and mode switches prevent stale jobs from appearing.
 
-Text results display immediately, including ciphertext. 「コピー」 is primary, 「保存」 secondary, and 「編集」 retains the draft. Binary results prioritize Save and retain the actual file name. Results have no format disclosure or CLI commands. Encryption alone shows a short envelope-to-recipient animation and copy/save instructions for email or SNS. Use the actual GitHub recipient when registered keys were used; manual public keys get a neutral explanation of the matching private key. Do not imply the app sent anything. Decryption shows the recovered content without this delivery guide.
+Text results display immediately, including ciphertext. 「コピー」 is primary, 「保存」 secondary, and 「編集」 retains the draft. Binary results prioritize Save and retain the actual file name. Results have no format disclosure or always-visible CLI commands. Encryption alone shows a short envelope-to-recipient animation and copy/save instructions for email or SNS. Use the actual GitHub recipient when registered keys were used; manual public keys get a neutral explanation of the matching private key. Do not imply the app sent anything. Decryption shows the recovered content without this delivery guide.
+
+Encryption results have a closed 「Tips：コマンドで復号」 below the preview. Opening it shows a shell-quoted command using the saved filename: GPG for OpenPGP, age with an identity path for SSH. Include the save/folder instruction and the matching private-key requirement. Keep this inside the result scroll area so expanded guidance cannot push Copy/Save off-screen. It is absent from decryption results.
 
 The first 100,000 characters are previewed; Copy and Save use the complete result. A failed clipboard operation selects a complete short preview; a large result directs the user to Save rather than selecting truncated ciphertext.
 

@@ -107,6 +107,14 @@ for (const [width, height] of [
   );
   const cipher = await page.evaluate(() => document.getElementById('result-text').textContent);
   await fit('encrypted');
+  assert.equal(await page.evaluate(() => document.getElementById('terminal-tips').open), false);
+  await page.click('#terminal-tips summary');
+  await fit('terminal-tips');
+  assert.match(
+    await page.evaluate(() => document.getElementById('terminal-command').textContent),
+    /^gpg /,
+  );
+  await page.click('#terminal-tips summary');
   await page.click('#clear-button');
   await page.fill('#github-user', 'missing');
   await page.waitForFunction(() => document.getElementById('recipient-text').checkVisibility());
@@ -143,7 +151,7 @@ await writeFile(
 );
 console.log({
   passed: layouts.length,
-  viewports: layouts.length / 7,
+  viewports: layouts.length / 8,
   pageOverflow: Math.max(...layouts.map((item) => item.documentHeight - item.height)),
   formOverflow: Math.max(...layouts.map((item) => item.panelOverflow)),
 });

@@ -64,6 +64,25 @@ assert.equal(
   null,
 );
 await page.fill('#encrypt-text', 'A private message');
+assert.equal(
+  await page.evaluate(() => {
+    const summary = document.getElementById('recipient-card');
+    const interactive = 'a, button, [role="button"], [role="link"], [tabindex]';
+    return summary.matches(interactive) || Boolean(summary.querySelector(interactive));
+  }),
+  false,
+  'recipient information is passive, not a selection or navigation action',
+);
+await page.click('#recipient-card');
+assert.equal(await page.url(), __FUMI_URL__);
+assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
+await page.focus('#github-user');
+await page.press('#github-user', 'Tab');
+assert.equal(
+  await page.evaluate(() => document.activeElement.id),
+  'run-button',
+  'keyboard navigation skips the passive identity and reaches the encryption action',
+);
 await page.fill('#github-user', 'missing');
 await page.waitForFunction(() =>
   document.getElementById('recipient-status').textContent.includes('プロフィールは表示できません'),

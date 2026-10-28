@@ -27,7 +27,7 @@ Alternative: a long product landing page with scroll chapters. It offers more st
 ## GitHub recipient preview
 
 - After a valid GitHub username, @name or supported profile/key URL is entered, debounce lookup by approximately 450 ms.
-- Show public display name, login and avatar, with a GitHub profile link. Omit the bio to keep the form height predictable. Use textContent and validated GitHub/avatar URLs.
+- Show public display name, login and a 32px avatar in a passive row under the username. No card surface, border, arrow, link, hover state or keyboard stop: the preview is information, not a confirmation action. Omit the bio to keep the form height predictable. Use textContent and a validated avatar source.
 - A same-origin GET endpoint fetches only the public GitHub user profile. Validate usernames; fix the upstream host; bound time and response size; do not forward credentials or arbitrary URLs. Proxy avatars through a narrowly scoped same-origin path or return a safe locally rendered fallback so the page's image policy stays restricted.
 - Profile information is presentation only. A profile card is not a confirmation of usable keys or a person's identity. Check registered key presence as the username settles; validate the actual encryption keys when submitting.
 - Abort superseded requests and guard late responses. Clear/reset, invalid input, manual public keys and mode changes remove stale presentation. Loading, missing accounts, rate limits and network errors have compact states and never block manual keys or normal encryption.

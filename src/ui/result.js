@@ -4,6 +4,10 @@ export function renderResultView(result, mode) {
   $('result-text').textContent = '';
   $('copy-label').textContent = 'コピー';
   $('delivery-guide').hidden = !result || mode !== 'encrypt';
+  $('terminal-tips').hidden = !result || mode !== 'encrypt';
+  $('terminal-tips').open = false;
+  $('terminal-command').textContent = '';
+  $('terminal-key-hint').textContent = '';
   $('result-panel').dataset.operation = mode;
   if (!result) return;
   const text = result.text !== null;
@@ -23,4 +27,15 @@ export function renderResultView(result, mode) {
   $('preview-hint').textContent = '先頭100,000文字を表示しています。全文はコピー・保存できます。';
   $('copy-button').hidden = !text;
   $('save-button').className = text ? 'secondary-button' : 'primary-button';
+  if (mode === 'encrypt') {
+    const filename = "'" + ('./' + result.filename).replace(/'/g, "'\\''") + "'";
+    $('terminal-command').textContent =
+      result.format === 'ssh'
+        ? `age --decrypt --identity ~/.ssh/id_ed25519 --output restored ${filename}`
+        : `gpg --output restored --decrypt ${filename}`;
+    $('terminal-key-hint').textContent =
+      result.format === 'ssh'
+        ? '~/.ssh/id_ed25519 は、対応するSSH秘密鍵のパスに置き換えてください。'
+        : '対応する秘密鍵を登録したGPGで実行してください。';
+  }
 }

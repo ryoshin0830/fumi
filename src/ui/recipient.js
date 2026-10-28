@@ -20,7 +20,6 @@ export function createRecipientPreview({ onKeyFallback } = {}) {
     $('recipient-status').textContent = '';
     for (const id of ['recipient-name', 'recipient-login', 'recipient-bio', 'recipient-initial'])
       $(id).textContent = '';
-    $('recipient-link').removeAttribute('href');
     avatar.hidden = true;
     avatar.removeAttribute('src');
   }
@@ -55,7 +54,6 @@ export function createRecipientPreview({ onKeyFallback } = {}) {
         $('recipient-bio').textContent = profile.bio;
         $('recipient-bio').hidden = !profile.bio;
         $('recipient-initial').textContent = profile.login[0].toUpperCase();
-        $('recipient-link').href = 'https://github.com/' + profile.login;
         if (usesKeyServer()) {
           avatar.hidden = false;
           avatar.src = '/api/github-avatar/' + profile.id;

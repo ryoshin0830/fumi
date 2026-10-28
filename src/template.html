@@ -43,7 +43,6 @@
           <circle cx="12" cy="8" r="4" />
           <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
         </symbol>
-        <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5" /></symbol>
       </defs>
     </svg>
     <header class="site-header">
@@ -182,23 +181,15 @@
                   aria-describedby="recipient-error"
                 />
                 <div id="recipient-preview" class="recipient-preview" hidden>
-                  <div id="recipient-card" hidden>
-                    <a
-                      id="recipient-link"
-                      class="recipient-card"
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      <span class="recipient-avatar-wrap"
-                        ><span id="recipient-initial"></span
-                        ><img id="recipient-avatar" alt="" width="44" height="44" hidden
-                      /></span>
-                      <span class="recipient-identity"
-                        ><strong id="recipient-name"></strong><span id="recipient-login"></span
-                        ><span id="recipient-bio"></span
-                      ></span>
-                      <svg class="icon profile-arrow" aria-hidden="true"><use href="#arrow" /></svg>
-                    </a>
+                  <div id="recipient-card" class="recipient-summary" hidden>
+                    <span class="recipient-avatar-wrap"
+                      ><span id="recipient-initial"></span
+                      ><img id="recipient-avatar" alt="" width="32" height="32" hidden
+                    /></span>
+                    <span class="recipient-identity"
+                      ><strong id="recipient-name"></strong><span id="recipient-login"></span
+                      ><span id="recipient-bio"></span
+                    ></span>
                   </div>
                   <p
                     id="recipient-status"
@@ -412,6 +403,17 @@
               ></pre>
               <p id="preview-hint" class="field-hint" hidden></p>
               <p id="result-error" class="field-error" role="alert" hidden></p>
+              <details id="terminal-tips" class="terminal-tips" hidden>
+                <summary>Tips：コマンドで復号</summary>
+                <p>暗号文を「保存」して、保存したフォルダーで実行します。</p>
+                <pre
+                  id="terminal-command"
+                  tabindex="0"
+                  aria-label="復号コマンド"
+                  translate="no"
+                ></pre>
+                <p id="terminal-key-hint"></p>
+              </details>
             </div>
             <div class="result-actions">
               <button id="copy-button" type="button" class="primary-button">
