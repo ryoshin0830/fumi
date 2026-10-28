@@ -52,7 +52,7 @@ function inputBytes(value, max, label) {
 async function invoke(operation, value) {
   const engine = await bridge();
   const result = engine[operation](value);
-  if (result.error) throw new Error(result.error);
+  if (result.error) throw Object.assign(new Error(result.error), { code: result.code });
   return result;
 }
 

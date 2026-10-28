@@ -37,13 +37,28 @@ try {
   for (const [name, content] of Object.entries({
     'recipient-public.asc': recipient.publicKey,
     'recipient-secret.asc': recipient.privateKey,
+    'recipient-secret-unprotected.asc': (
+      await pgp.decryptKey({
+        privateKey: await pgp.readPrivateKey({ armoredKey: recipient.privateKey }),
+        passphrase: 'test-recipient-pass',
+      })
+    ).armor(),
     'signer-public.asc': signer.publicKey,
     'signer-secret.asc': signer.privateKey,
     'signer-ssh.pub': sshPublic,
     'signer-ssh': sshPrivate,
     'other-public.asc': other.publicKey,
+    'other-secret.asc': other.privateKey,
   }))
     await writeFile(new URL(name, destination), content, { mode: 0o600 });
+  const plainSSH = join(temporary, 'plain-ssh');
+  await writeFile(plainSSH, sshPrivate, { mode: 0o600 });
+  execFileSync('ssh-keygen', ['-p', '-P', 'test-sign-pass', '-N', '', '-f', plainSSH], {
+    stdio: 'pipe',
+  });
+  await writeFile(new URL('signer-ssh-unprotected', destination), await readFile(plainSSH), {
+    mode: 0o600,
+  });
   await writeFile(
     new URL('public-responses.json', destination),
     JSON.stringify({ pgp: signer.publicKey, ssh: sshPublic, other: other.publicKey }),

@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { build } from 'esbuild';
 import * as pgp from 'openpgp';
+import { createDecryptionCommand } from '../src/ui/decryption.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 // GPG agent sockets exceed macOS's pathname limit inside its long per-user temp path.
@@ -268,6 +269,25 @@ try {
               run('unzip', ['-l', plaintext]),
             );
           }
+        }
+        if (signing === 'none') {
+          const { command } = createDecryptionCommand({
+            data: encrypted.bytes,
+            sourceName: encrypted.filename,
+            identity: sshReceiver,
+          });
+          const execution = spawnSync('/bin/sh', ['-c', command], {
+            cwd: caseDirectory,
+            env: {
+              ...process.env,
+              PATH: directory + delimiter + process.env.PATH,
+              GNUPGHOME: gnupg,
+            },
+            encoding: 'utf8',
+          });
+          assert.equal(execution.status, 0, execution.stderr);
+          assert.deepEqual(await readFile(join(caseDirectory, 'restored')), input.bytes);
+          row.generatedCommandVerified = true;
         }
         cases.push(row);
       }

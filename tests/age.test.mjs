@@ -153,7 +153,7 @@ test('wrong passphrase and missing passphrase fail safely', async () => {
     for (const passphrase of ['', 'incorrect'])
       await assert.rejects(
         api.decryptAge({ data: result.bytes, privateKey: key.privateKey, passphrase }),
-        /パスフレーズ/,
+        passphrase ? /パスフレーズ/ : { code: 'PASSPHRASE_REQUIRED' },
       );
   }
 });

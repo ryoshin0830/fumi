@@ -55,8 +55,10 @@ for (const external of [false, true]) {
     assert.equal(first.terminated, true);
     const restarted = api.runCrypto('inspect', {});
     const second = api.workers[1];
-    second.onmessage({ data: { id: second.message.id, error: 'invalid key' } });
-    await assert.rejects(restarted, /invalid key/);
+    second.onmessage({
+      data: { id: second.message.id, error: 'password required', code: 'PASSPHRASE_REQUIRED' },
+    });
+    await assert.rejects(restarted, { code: 'PASSPHRASE_REQUIRED' });
     const failed = api.runCrypto('inspect', {});
     second.onerror({ preventDefault() {} });
     await assert.rejects(failed, /暗号処理/);

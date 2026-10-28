@@ -55,7 +55,10 @@ export async function unlockPGPKey(value, passphrase = '', signing = false) {
     );
   }
   const locked = packets.filter((packet) => !packet.isDummy() && !packet.isDecrypted());
-  if (locked.length && !passphrase) throw new Error('この秘密鍵にはパスフレーズが必要です。');
+  if (locked.length && !passphrase)
+    throw Object.assign(new Error('この秘密鍵にはパスフレーズが必要です。'), {
+      code: 'PASSPHRASE_REQUIRED',
+    });
   try {
     for (const packet of locked) await packet.decrypt(passphrase);
     if (signing) await packets[0].validate();

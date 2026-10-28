@@ -43,6 +43,13 @@ await page.evaluate((keys) => {
       body: options.body || null,
       credentials: options.credentials,
     });
+    if (String(url).startsWith('/api/github-profile/'))
+      return Response.json({
+        id: 1,
+        login: String(url).split('/').pop(),
+        name: 'Recipient',
+        bio: '',
+      });
     if (window.__keyMode === 'offline') throw new TypeError('Failed to fetch');
     if (window.__keyMode === 'limit')
       return new Response('{"message":"rate limit"}', {
@@ -86,27 +93,38 @@ const finished = () =>
     undefined,
     { timeout: 30000 },
   );
+async function submit() {
+  await page.focus('#run-button');
+  await page.press('#run-button', 'Enter');
+}
 async function clear(mode = 'encrypt') {
   await page.click('#' + mode + '-tab');
   await page.click('#clear-button');
+  if (mode === 'decrypt') {
+    await page.click('#decrypt-web');
+    await page.click('#secret-paste summary');
+  }
 }
 async function advanced() {
-  if (!(await page.evaluate(() => document.getElementById('advanced-settings').open)))
-    await page.click('#advanced-settings > summary');
+  if (!(await page.evaluate(() => document.getElementById('recipient-text').checkVisibility())))
+    await page.click('#manual-key-button');
 }
 async function encrypt(text = original, recipient = 'receiver') {
   await clear();
   await page.fill('#encrypt-text', text);
   await page.fill('#github-user', recipient);
-  await page.click('#run-button');
+  await submit();
   await finished();
 }
 async function decrypt(cipher, privateKey = secret, password = 'test-recipient-pass') {
   await clear('decrypt');
   await page.fill('#decrypt-text', cipher);
+  if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
+    await page.click('#secret-paste summary');
   await page.fill('#secret-text', privateKey);
+  await page.waitForSelector('#passphrase', { state: 'visible' });
   await page.fill('#passphrase', password);
-  await page.click('#run-button');
+  await submit();
   await finished();
 }
 async function shot(name) {
@@ -152,7 +170,7 @@ assert.equal(
   true,
 );
 assert.equal(await visible('result-file'), false);
-assert.equal(await page.evaluate(() => document.getElementById('result-details').open), false);
+assert.equal(await page.evaluate(() => document.getElementById('result-details')), null);
 await shot('ciphertext');
 await page.evaluate(() =>
   Object.defineProperty(navigator, 'clipboard', {
@@ -215,7 +233,7 @@ await clear();
 await page.fill('#encrypt-text', original);
 await page.fill('#github-user', 'https://example.com/receiver');
 const beforeInvalidRecipient = await page.evaluate(() => window.__requests.length);
-await page.click('#run-button');
+await submit();
 await idle();
 assert.equal(await visible('recipient-error'), true);
 assert.equal(await visible('result-panel'), false);
@@ -231,24 +249,24 @@ await advanced();
 await page.fill('#recipient-text', keys.recipient);
 assert.equal(await visible('github-recipient'), false);
 const requestCount = await page.evaluate(() => window.__requests.length);
-await page.click('#run-button');
+await submit();
 await finished();
 assert.equal(await page.evaluate(() => window.__requests.length), requestCount);
 await page.click('#edit-result-button');
 await advanced();
 await page.fill('#recipient-text', 'bad key');
-await page.click('#advanced-settings > summary');
-await page.click('#run-button');
+
+await submit();
 await idle();
 assert.equal(await visible('recipient-error'), true);
-assert.equal(await page.evaluate(() => document.getElementById('advanced-settings').open), true);
+assert.equal(await page.evaluate(() => !document.getElementById('recipient-key-box').hidden), true);
 passed.push(
-  'manual public keys visibly replace GitHub recipients, work offline, and reopen on validation errors',
+  'manual public keys visibly replace GitHub recipients, work offline, and stay visible on validation errors',
 );
 await clear();
 await page.fill('#encrypt-text', randomBytes(120000).toString('base64'));
 await page.fill('#github-user', 'receiver.gpg');
-await page.click('#run-button');
+await submit();
 await finished();
 assert.equal(await visible('preview-hint'), true);
 await page.click('#copy-button');
@@ -287,9 +305,9 @@ await page.evaluate(() => {
 await page.setInputFiles('#encrypt-file', [base + 'payload.bin']);
 await idle();
 await page.fill('#github-user', 'receiver');
-await page.click('#run-button');
+await submit();
 await finished();
-assert.match(await value('result-format'), /age/);
+assert.match(await value('result-filename'), /\.age$/);
 await page.evaluate(() => {
   window.__keyMode = 'match';
 });
@@ -309,12 +327,14 @@ await page.setInputFiles('#decrypt-file', [base + 'minimal.age']);
 await idle();
 await page.setInputFiles('#secret-file', [base + 'signer-ssh']);
 await idle();
+await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'wrong');
-await page.click('#run-button');
+await submit();
 await idle();
 assert.equal(await visible('secret-error'), true);
+await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'test-sign-pass');
-await page.click('#run-button');
+await submit();
 await finished();
 const restoredPromise = page.waitForEvent('download', { timeout: 30000 });
 await page.click('#save-button');
@@ -357,14 +377,17 @@ assert.match(
 );
 await clear('decrypt');
 await page.fill('#decrypt-text', await readFile(base + 'legacy-native.asc', 'utf8'));
+if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
+  await page.click('#secret-paste summary');
 await page.fill('#secret-text', secret);
+await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'test-recipient-pass');
 await page.evaluate(() => {
   window.__keyMode = 'delay';
   window.__released = false;
   delete window.__releaseFetch;
 });
-await page.click('#run-button');
+await submit();
 await page.waitForFunction(() => Boolean(window.__releaseFetch), undefined, { timeout: 30000 });
 assert.equal(await visible('result-cancel-button'), true);
 assert.equal(
@@ -388,9 +411,12 @@ await page.evaluate(() => {
 for (const name of ['tampered.asc', 'unsupported-native.asc']) {
   await clear('decrypt');
   await page.fill('#decrypt-text', await readFile(base + name, 'utf8'));
+  if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
+    await page.click('#secret-paste summary');
   await page.fill('#secret-text', secret);
+  await page.waitForSelector('#passphrase', { state: 'visible' });
   await page.fill('#passphrase', 'test-recipient-pass');
-  await page.click('#run-button');
+  await submit();
   await idle();
   assert.equal(await visible('result-panel'), false);
   assert.equal(
@@ -413,7 +439,7 @@ await page.evaluate(() => {
   window.__released = false;
   delete window.__releaseFetch;
 });
-await page.click('#run-button');
+await submit();
 await page.waitForFunction(() => Boolean(window.__releaseFetch), undefined, { timeout: 30000 });
 await page.click('#cancel-button');
 await page.evaluate(() => window.__releaseFetch());
@@ -427,12 +453,12 @@ await page.evaluate(() => {
   window.__keyMode = 'limit';
 });
 await page.fill('#github-user', 'limited.gpg');
-await page.click('#run-button');
+await submit();
 await idle();
-assert.match(await value('recipient-error'), /取得上限/);
+assert.match(await value('recipient-reason'), /取得できません/);
 await advanced();
 await page.fill('#recipient-text', keys.recipient);
-await page.click('#run-button');
+await submit();
 await finished();
 passed.push(
   'cancelled lookup cannot replace a draft; rate limits remain recoverable by supplying a public key',
@@ -445,7 +471,10 @@ const telemetry = await page.evaluate(() => ({
 assert.deepEqual(telemetry.errors, []);
 assert.deepEqual(telemetry.csp, []);
 for (const request of telemetry.requests) {
-  assert.match(request.url, /^\/api\/github-keys\/[a-z0-9-]+\?type=(pgp|ssh)$/);
+  assert.match(
+    request.url,
+    /^\/api\/github-(?:keys\/[a-z0-9-]+\?type=(pgp|ssh)|profile\/[a-z0-9-]+)$/,
+  );
   assert.equal(request.method, 'GET');
   assert.equal(request.body, null);
   assert.equal(request.credentials, 'omit');
@@ -471,4 +500,4 @@ console.log({
   errors: telemetry.errors,
   csp: telemetry.csp,
 });
-await task.finish({ keep: [] });
+if (!__FUMI_KEEP__) await task.finish({ keep: [] });

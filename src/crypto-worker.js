@@ -91,6 +91,6 @@ self.onmessage = async ({ data: { id, action, payload } }) => {
     } else throw new Error('処理を開始できませんでした。');
     self.postMessage({ id, result });
   } catch (error) {
-    self.postMessage({ id, error: error.message || '処理に失敗しました。' });
+    self.postMessage({ id, error: error.message || '処理に失敗しました。', code: error.code });
   }
 };

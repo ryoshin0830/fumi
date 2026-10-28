@@ -14,6 +14,7 @@ test('standalone HTML contains only embedded assets and matching CSP hashes', as
   }
   assert.match(html, /connect-src https:\/\/api.github.com;/);
   assert.match(html, /worker-src blob:/);
+  assert.match(html, /img-src 'none';/);
   assert.match(html, /form-action 'none'/);
   assert.doesNotMatch(html, /<(?:script|link|img|iframe)[^>]+(?:src|href)=["']https?:/i);
   assert.doesNotMatch(html, /__(?:CSP|SCRIPT|STYLES|LICENSE|KEY_SOURCE|KEY_DESCRIPTION)__/);
@@ -26,6 +27,7 @@ test('Next.js serves the web build with a same-origin-only connection policy', a
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.match(response.headers.get('content-security-policy'), /connect-src 'self';/);
   assert.doesNotMatch(response.headers.get('content-security-policy'), /api\.github\.com/);
+  assert.match(response.headers.get('content-security-policy'), /img-src 'self';/);
   assert.match(html, /<meta name="dgpg-key-source" content="server"\s*\/?>/);
   assert.doesNotMatch(html, /__(?:KEY_SOURCE|KEY_DESCRIPTION)__/);
   for (const [, content] of html.matchAll(/<(?:script|style)>([\s\S]*?)<\/(?:script|style)>/g))
