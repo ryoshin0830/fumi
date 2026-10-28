@@ -267,10 +267,6 @@
                 </div>
               </fieldset>
               <div id="decrypt-content" hidden>
-                <div id="command-cipher-summary" class="file-chip" hidden>
-                  <span id="command-cipher-name"></span
-                  ><button id="command-edit-cipher" type="button" class="quiet-button">変更</button>
-                </div>
                 <section id="decrypt-source-group" class="input-group" data-drop="decrypt">
                   <div class="field-toolbar">
                     <label for="decrypt-text">暗号文</label>
@@ -382,128 +378,13 @@
                   </details>
                 </div>
                 <section id="command-decryption" hidden aria-label="コマンドで復号">
-                  <p id="command-status" class="field-hint" role="status">
-                    暗号文を入れると、対応するコマンドが表示されます。
-                  </p>
-                  <div id="command-source-options" hidden>
-                    <div class="command-source-row">
-                      <label class="command-option-label" for="command-input-source">暗号文</label>
-                      <select id="command-input-source">
-                        <option value="file">ファイルを保存して使う</option>
-                        <option id="command-cipher-clipboard-option" value="clipboard">
-                          クリップボードから読む
-                        </option>
-                      </select>
-                    </div>
-                    <div id="command-key-options" hidden>
-                      <div class="command-source-row">
-                        <label class="command-option-label" for="command-key-source">秘密鍵</label>
-                        <select id="command-key-source">
-                          <option value="">選択してください</option>
-                          <option id="command-keyring-option" value="keyring">
-                            GPGに登録済みの鍵を使う
-                          </option>
-                          <option value="file">秘密鍵ファイルを使う</option>
-                          <option value="clipboard">クリップボードから読む</option>
-                        </select>
-                      </div>
-                      <div id="command-key-path-box" hidden>
-                        <div class="field-toolbar">
-                          <label for="command-key-path">秘密鍵ファイルのパス</label
-                          ><label class="file-button" for="command-key-file"
-                            >ファイル名を選ぶ<input
-                              id="command-key-file"
-                              type="file"
-                              aria-label="秘密鍵ファイルの名前を選ぶ"
-                          /></label>
-                        </div>
-                        <input
-                          id="command-key-path"
-                          type="text"
-                          placeholder="例：~/.ssh/id_ed25519"
-                          spellcheck="false"
-                          autocapitalize="none"
-                          aria-describedby="command-error"
-                        />
-                      </div>
-                    </div>
-                    <p id="command-source-hint" class="field-hint"></p>
-                  </div>
-                  <details id="command-output" hidden>
-                    <summary>コマンドを確認</summary>
-                    <p class="field-hint">
-                      <span id="command-environment-label">macOS / Linux</span
-                      ><span id="command-execution-hint"></span>
-                    </p>
-                    <pre
-                      id="terminal-command"
-                      tabindex="0"
-                      aria-label="復号コマンド"
-                      translate="no"
-                    ></pre>
-                  </details>
+                  <pre
+                    id="terminal-command"
+                    tabindex="0"
+                    aria-label="復号コマンド"
+                    translate="no"
+                  ></pre>
                   <p id="command-error" class="field-error" role="alert" hidden></p>
-                  <details id="command-tips" class="decryption-tips" data-reveal>
-                    <summary>Tips：鍵の場所と準備</summary>
-                    <details id="command-cipher-path-box" hidden>
-                      <summary>暗号文ファイルの場所を変更</summary>
-                      <label class="command-option-label" for="command-cipher-path"
-                        >暗号文ファイルの名前／パス</label
-                      ><input
-                        id="command-cipher-path"
-                        type="text"
-                        spellcheck="false"
-                        autocapitalize="none"
-                        aria-describedby="command-error"
-                      />
-                    </details>
-                    <div class="command-environment">
-                      <label for="command-shell">実行する環境</label>
-                      <select id="command-shell">
-                        <option value="posix">macOS / Linux</option>
-                        <option value="powershell">Windows（PowerShell）</option>
-                      </select>
-                    </div>
-
-                    <div id="command-clipboard-tool-box" hidden>
-                      <label class="command-option-label" for="command-clipboard-tool"
-                        >クリップボードを読む環境</label
-                      ><select id="command-clipboard-tool">
-                        <option value="">選択してください</option>
-                        <option value="pbpaste">macOS（pbpaste）</option>
-                        <option value="powershell">Windows（PowerShell）</option>
-                        <option value="wl-paste">Linux（Wayland）</option>
-                        <option value="xclip">Linux（X11）</option>
-                      </select>
-                    </div>
-                    <p id="command-pgp-tip">
-                      GPGが必要です。秘密鍵ファイル・クリップボードを選んだ場合は、一時領域に読み込んで終了時に削除します。
-                      <a
-                        href="https://gnupg.org/download/"
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        >GPGの入手方法</a
-                      >
-                    </p>
-                    <div id="command-ssh-tip" hidden>
-                      <p>
-                        <code>age</code
-                        >と、対応するSSH秘密鍵ファイルが必要です。<code>gh</code>で新規作成した場合の候補は
-                        <code>~/.ssh/id_ed25519</code> です。
-                        <a
-                          href="https://github.com/FiloSottile/age#installation"
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          >ageの入手方法</a
-                        >
-                      </p>
-                      <p>
-                        既存の鍵を登録した場合は別の場所にあることもあります。<code>.pub</code>は公開鍵です。
-                      </p>
-                      <p>SSHエージェント内だけの鍵は、このageコマンドでは使えません。</p>
-                    </div>
-                    <p>新しい鍵を作り直す必要はありません。暗号化されたときの鍵を使います。</p>
-                  </details>
                 </section>
               </div>
             </section>
@@ -511,9 +392,6 @@
             <div class="form-actions">
               <button id="command-copy-button" type="button" class="primary-button" hidden>
                 <span id="command-copy-label">コマンドをコピー</span>
-              </button>
-              <button id="command-save-button" type="button" class="secondary-button" hidden>
-                暗号文を保存
               </button>
               <button id="cancel-button" type="button" class="quiet-button" hidden>中止</button
               ><button id="run-button" type="submit" class="primary-button" disabled>
