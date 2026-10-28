@@ -25,8 +25,18 @@ let decryptChecked = false;
 let decryptTimer;
 let decryptMethod = null;
 let commandInfo = null;
+let savedCipher = null;
+let cipherExpanded = false;
+let commandFormat = null;
+let pasteVersion = 0;
 const defaultShell = /Win/i.test(navigator.platform) ? 'powershell' : 'posix';
+const defaultClipboard = /Win/i.test(navigator.platform)
+  ? 'powershell'
+  : /Mac/i.test(navigator.platform)
+    ? 'pbpaste'
+    : '';
 $('command-shell').value = defaultShell;
+$('command-clipboard-tool').value = defaultClipboard;
 const recipientPreview = createRecipientPreview({ onKeyFallback: showManualKey });
 const cipherMotion = createCipherMotion();
 const valueOf = (kind) =>
@@ -35,6 +45,14 @@ const hasValue = (kind) =>
   drafts[kind].kind === 'file'
     ? Boolean(drafts[kind].file)
     : Boolean($(kind + '-text').value.trim());
+const secretIsPath = () => {
+  if (drafts.secret.kind !== 'text') return false;
+  const text = $('secret-text').value.trim();
+  return (
+    !/[\r\n]/.test(text) &&
+    (/[/\\]/.test(text) || /^(?:id_(?:rsa|ed25519)|.*\.(?:asc|gpg|pgp|pem|key))$/i.test(text))
+  );
+};
 const ownerOf = (kind) => (kind === 'secret' ? 'decrypt' : kind === 'recipient' ? 'encrypt' : kind);
 const announce = (text) => {
   $('live-status').textContent = text;
@@ -114,6 +132,7 @@ function updateForm() {
       ? !(manual || (!manualOpen && $('github-user').value.trim()))
       : decryptMethod !== 'web' ||
         !hasValue('secret') ||
+        secretIsPath() ||
         (passwordNeeded && !$('passphrase').value));
   $('run-button').hidden =
     mode === 'decrypt' && (decryptMethod !== 'web' || (!passwordNeeded && !decryptChecked));
@@ -132,22 +151,79 @@ function updateCommand() {
   const active = mode === 'decrypt' && decryptMethod === 'command';
   const data = valueOf('decrypt');
   const format = active && detectFormat(data);
-  $('command-key-path-box').hidden = format !== 'ssh';
+  const isFile = drafts.decrypt.kind === 'file';
+  $('command-input-source').options[0].textContent = isFile
+    ? 'ファイルから読む'
+    : 'ファイルを保存して使う';
+  const filename =
+    drafts.decrypt.file?.name || (format === 'pgp' ? 'message.txt.asc' : 'message.txt.age');
+  if (format && format !== commandFormat) {
+    if (format === 'ssh' && $('command-key-source').value === 'keyring')
+      $('command-key-source').value = '';
+    commandFormat = format;
+  }
+  const armored = /^-----BEGIN (?:PGP MESSAGE|AGE ENCRYPTED FILE)-----/.test(
+    (typeof data === 'string' ? data : new TextDecoder().decode(data?.subarray(0, 80))).trimStart(),
+  );
+  $('command-cipher-clipboard-option').disabled = !armored;
+  if (!armored) $('command-input-source').value = 'file';
+  const inputSource = $('command-input-source').value;
+  const prepared = isFile || savedCipher === data;
+  const ready = Boolean(format && (inputSource === 'clipboard' || prepared));
+  const keySource = $('command-key-source').value;
+  const clipboard = inputSource === 'clipboard' || keySource === 'clipboard';
+  const compact = active && ready && !cipherExpanded;
+  $('decrypt-source-group').hidden = compact;
+  $('command-cipher-summary').hidden = !compact;
+  $('command-cipher-name').textContent = inputSource === 'clipboard' ? '入力した暗号文' : filename;
+  $('command-source-options').hidden = !format;
+  $('command-key-options').hidden = !ready;
+  $('command-cipher-path-box').hidden = inputSource !== 'file' || !prepared;
+  $('command-keyring-option').hidden = format !== 'pgp';
+  $('command-keyring-option').disabled = format !== 'pgp';
+  $('command-key-path-box').hidden = keySource !== 'file';
+  $('command-clipboard-tool-box').hidden = !ready || !clipboard;
+  if (ready && clipboard && !$('command-clipboard-tool').value) $('command-tips').open = true;
   $('command-pgp-tip').hidden = format !== 'pgp';
   $('command-ssh-tip').hidden = format !== 'ssh';
   $('command-environment-label').textContent =
     $('command-shell').value === 'powershell' ? 'PowerShell' : 'macOS / Linux';
-  $('command-copy-button').hidden = !active;
-  $('command-save-button').hidden = !active || drafts.decrypt.kind === 'file';
+  $('command-execution-hint').textContent =
+    inputSource === 'file'
+      ? '：暗号文を置いたフォルダーで実行します。出力先は restored です。'
+      : '：ターミナルで実行します。出力先は restored です。';
+  $('command-copy-button').hidden = !active || !ready;
+  $('command-save-button').hidden = !active || !format || isFile || inputSource !== 'file';
+  $('command-save-button').classList.toggle('primary-button', !ready);
+  $('command-save-button').classList.toggle('secondary-button', ready);
+  $('command-source-hint').textContent = !ready
+    ? '先に暗号文を保存してください。保存後に秘密鍵の使い方を選びます。'
+    : !keySource
+      ? '暗号化に使われた公開鍵に対応する秘密鍵を選んでください。'
+      : clipboard
+        ? 'コマンドを実行し、案内が出てから対象をコピーして Enter を押します。'
+        : keySource === 'file'
+          ? 'ファイル選択で分かるのは名前だけです。別の場所ならパスに書き換えます。'
+          : 'この端末のGPGに登録されている秘密鍵を使います。';
   commandInfo = null;
   $('command-error').hidden = true;
   try {
-    if (active)
+    if (
+      active &&
+      ready &&
+      (inputSource !== 'file' || $('command-cipher-path').value.trim()) &&
+      (keySource !== 'file' || $('command-key-path').value.trim()) &&
+      (!clipboard || $('command-clipboard-tool').value)
+    )
       commandInfo = createDecryptionCommand({
         data,
         sourceName: drafts.decrypt.file?.name || '',
+        inputSource,
+        inputPath: $('command-cipher-path').value,
+        keySource,
         identity: $('command-key-path').value,
         shell: $('command-shell').value,
+        clipboardTool: $('command-clipboard-tool').value,
       });
   } catch (error) {
     $('command-error').textContent = error.message;
@@ -161,7 +237,7 @@ function updateCommand() {
     ? '暗号文の形式を確認できません。受け取った内容を確認してください。'
     : '暗号文を入れると、対応するコマンドが表示されます。';
   $('command-copy-button').disabled = busy || !commandInfo;
-  $('command-save-button').disabled = busy || !commandInfo;
+  $('command-save-button').disabled = busy || !format;
 }
 function renderResult() {
   renderResultView(drafts[mode].result, mode);
@@ -183,6 +259,7 @@ function setBusy(value, label = '処理中…') {
   updateForm();
 }
 function cancelWork() {
+  pasteVersion++;
   clearTimeout(decryptTimer);
   if (mode === 'decrypt' && hasValue('decrypt') && hasValue('secret')) decryptChecked = true;
   cipherMotion.reset();
@@ -259,7 +336,8 @@ function scheduleDecrypt() {
     decryptChecked ||
     drafts.decrypt.result ||
     !hasValue('decrypt') ||
-    !hasValue('secret')
+    !hasValue('secret') ||
+    secretIsPath()
   )
     return;
   decryptTimer = setTimeout(() => performOperation(true), 600);
@@ -410,19 +488,97 @@ for (const radio of document.querySelectorAll('[name="decrypt-method"]'))
     decryptMethod = radio.value;
     resetDecryptCheck();
     invalidate('decrypt');
+    checkSecretPath();
     scheduleDecrypt();
   });
-for (const id of ['command-key-path', 'command-shell'])
-  $(id).addEventListener(id === 'command-shell' ? 'change' : 'input', () => {
+for (const id of [
+  'command-key-path',
+  'command-cipher-path',
+  'command-shell',
+  'command-input-source',
+  'command-key-source',
+  'command-clipboard-tool',
+])
+  $(id).addEventListener(id.endsWith('path') ? 'input' : 'change', () => {
+    if (id === 'command-input-source') cipherExpanded = false;
+    if (id === 'command-clipboard-tool' && $('command-clipboard-tool').value)
+      $('command-shell').value =
+        $('command-clipboard-tool').value === 'powershell' ? 'powershell' : 'posix';
+    if (id === 'command-shell')
+      $('command-clipboard-tool').value =
+        $('command-shell').value === 'powershell'
+          ? 'powershell'
+          : defaultClipboard === 'powershell'
+            ? ''
+            : defaultClipboard;
     $('command-copy-label').textContent = 'コマンドをコピー';
     updateCommand();
   });
+$('command-edit-cipher').addEventListener('click', () => {
+  cipherExpanded = true;
+  updateCommand();
+  $(drafts.decrypt.kind === 'file' ? 'decrypt-file-remove' : 'decrypt-text').focus();
+});
+function resetCipherSource(name = '') {
+  savedCipher = null;
+  cipherExpanded = !name;
+  $('command-cipher-path').value = name;
+  $('command-cipher-path-box').open = false;
+}
+function checkSecretPath() {
+  if (decryptMethod === 'web' && secretIsPath())
+    errorAt(
+      'secret-error',
+      'これは秘密鍵ではなくファイルの場所です。「ファイルを選ぶ」から秘密鍵を選択してください。',
+      'secret-text',
+      false,
+    );
+}
+for (const kind of ['decrypt', 'secret'])
+  $(kind + '-paste-button').addEventListener('click', async () => {
+    if (busy || mode !== 'decrypt' || (kind === 'secret' && decryptMethod !== 'web')) return;
+    const version = ++pasteVersion;
+    const method = decryptMethod;
+    try {
+      const text = await navigator.clipboard.readText();
+      if (version !== pasteVersion || mode !== 'decrypt' || method !== decryptMethod || busy)
+        return;
+      const limit = kind === 'secret' ? MAX_KEY_BYTES : MAX_ENCRYPTED_BYTES;
+      if (byteLength(text) > limit) throw new Error('Clipboard too large');
+      drafts[kind].kind = 'text';
+      drafts[kind].file = null;
+      $(kind + '-text').value = text;
+      if (kind === 'secret') $('secret-paste').open = true;
+      if (kind === 'decrypt') resetCipherSource();
+      resetDecryptCheck();
+      invalidate('decrypt');
+      checkSecretPath();
+      scheduleDecrypt();
+    } catch {
+      if (version !== pasteVersion || mode !== 'decrypt' || method !== decryptMethod) return;
+      if (kind === 'secret') $('secret-paste').open = true;
+      errorAt(
+        kind + '-error',
+        '貼り付けできませんでした。入力欄に直接貼り付けてください。',
+        kind + '-text',
+      );
+    }
+  });
+$('command-key-file').addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  if (file && !busy && mode === 'decrypt' && decryptMethod === 'command') {
+    $('command-key-path').value = file.name;
+    updateCommand();
+  }
+  event.target.value = '';
+});
 for (const details of document.querySelectorAll('[data-reveal]'))
   details.addEventListener('toggle', () => {
     if (details.open) details.scrollIntoView({ block: 'nearest' });
   });
 function switchMode(next, focus = false) {
   if (next === mode) return;
+  pasteVersion++;
   cipherMotion.reset();
   clearTimeout(decryptTimer);
   if (busy) cancelWork();
@@ -452,12 +608,17 @@ for (const node of document.querySelectorAll('.operation-tabs [data-operation]')
 }
 for (const kind of Object.keys(drafts)) {
   $(kind + '-text').addEventListener('input', () => {
+    pasteVersion++;
+    if (kind === 'decrypt') resetCipherSource();
     if (ownerOf(kind) === 'decrypt') resetDecryptCheck();
     invalidate(ownerOf(kind));
+    if (kind === 'secret') checkSecretPath();
     scheduleDecrypt();
   });
   $(kind + '-file').addEventListener('change', (event) => loadFile(kind, event.target.files[0]));
   $(kind + '-file-remove').addEventListener('click', () => {
+    pasteVersion++;
+    if (kind === 'decrypt') resetCipherSource();
     drafts[kind].file = null;
     drafts[kind].kind = 'text';
     $(kind + '-file').value = '';
@@ -495,6 +656,7 @@ for (const kind of Object.keys(drafts)) {
 async function loadFile(kind, file) {
   if (!file || busy || (kind === 'secret' && (mode !== 'decrypt' || decryptMethod !== 'web')))
     return;
+  pasteVersion++;
   const errorId =
     kind === 'secret' ? 'secret-error' : kind === 'recipient' ? 'recipient-error' : kind + '-error';
   const limit =
@@ -512,6 +674,7 @@ async function loadFile(kind, file) {
       if (!current()) return;
       drafts[kind].file = { bytes, name: file.name };
       drafts[kind].kind = 'file';
+      if (kind === 'decrypt') resetCipherSource(file.name);
       if (ownerOf(kind) === 'decrypt') resetDecryptCheck();
       invalidate(ownerOf(kind));
       loadedJob = job;
@@ -602,15 +765,19 @@ $('save-button').addEventListener('click', () => {
   if (result && !$('save-button').disabled) saveBytes(result.bytes, result.filename);
 });
 $('command-save-button').addEventListener('click', () => {
-  if (
-    !commandInfo ||
-    $('command-save-button').disabled ||
-    mode !== 'decrypt' ||
-    decryptMethod !== 'command'
-  )
+  if ($('command-save-button').disabled || mode !== 'decrypt' || decryptMethod !== 'command')
     return;
   const data = valueOf('decrypt');
-  saveBytes(typeof data === 'string' ? new TextEncoder().encode(data) : data, commandInfo.filename);
+  const format = detectFormat(data);
+  if (!format || $('command-input-source').value !== 'file') return;
+  const filename = format === 'pgp' ? 'message.txt.asc' : 'message.txt.age';
+  saveBytes(typeof data === 'string' ? new TextEncoder().encode(data) : data, filename);
+  savedCipher = data;
+  cipherExpanded = false;
+  $('command-cipher-path').value = filename;
+  updateCommand();
+  $('command-key-source').focus({ preventScroll: true });
+  announce('保存先でファイル名を確認し、秘密鍵の使い方を選んでください。');
 });
 $('command-copy-button').addEventListener('click', async () => {
   if (
@@ -631,6 +798,7 @@ $('command-copy-button').addEventListener('click', async () => {
     if (commandInfo?.command !== command || mode !== 'decrypt' || decryptMethod !== 'command')
       return;
     errorAt('command-error', 'コピーできませんでした。選択したコマンドをコピーしてください。');
+    $('command-output').open = true;
     $('terminal-command').focus();
     const range = document.createRange();
     range.selectNodeContents($('terminal-command'));
@@ -647,7 +815,13 @@ $('clear-button').addEventListener('click', () => {
   $('secret-paste').open = false;
   $('web-key-tips').open = false;
   $('command-tips').open = false;
-  $('command-key-path').value = '~/.ssh/id_ed25519';
+  resetCipherSource();
+  commandFormat = null;
+  $('command-key-path').value = '';
+  $('command-key-file').value = '';
+  $('command-key-source').value = '';
+  $('command-input-source').value = 'file';
+  $('command-clipboard-tool').value = defaultClipboard;
   $('command-shell').value = defaultShell;
   resetDecryptCheck();
   clearGitHubKeyCache();
