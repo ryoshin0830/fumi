@@ -21,7 +21,9 @@ const finished = () =>
 async function fit(stage) {
   const bounds = await page.evaluate(() => {
     const button = document.getElementById('result-panel').hidden
-      ? document.getElementById('run-button')
+      ? document.getElementById('command-copy-button').hidden
+        ? document.getElementById('run-button')
+        : document.getElementById('command-copy-button')
       : document.querySelector('.result-actions .primary-button:not([hidden])');
     const rect = button.getBoundingClientRect();
     const panel = document.querySelector('[role="tabpanel"]:not([hidden])');
@@ -44,7 +46,7 @@ async function fit(stage) {
     stage + ': page scroll ' + JSON.stringify(bounds),
   );
   assert.ok(bounds.documentWidth <= bounds.width, stage + ': horizontal scroll');
-  if (stage !== 'long-file-signature')
+  if (!['long-file-signature', 'command-tips', 'web-key-tips'].includes(stage))
     assert.ok(bounds.panelOverflow <= 1, stage + ': unnecessary inner form scroll');
   if (bounds.actionVisible)
     assert.ok(
@@ -107,22 +109,32 @@ for (const [width, height] of [
   );
   const cipher = await page.evaluate(() => document.getElementById('result-text').textContent);
   await fit('encrypted');
-  assert.equal(await page.evaluate(() => document.getElementById('terminal-tips').open), false);
-  await page.click('#terminal-tips summary');
-  await fit('terminal-tips');
-  assert.match(
-    await page.evaluate(() => document.getElementById('terminal-command').textContent),
-    /^gpg /,
-  );
-  await page.click('#terminal-tips summary');
   await page.click('#clear-button');
   await page.fill('#github-user', 'missing');
   await page.waitForFunction(() => document.getElementById('recipient-text').checkVisibility());
   await fit('manual-key');
   await page.click('#decrypt-tab');
   await page.click('#clear-button');
+  await fit('method-choice');
+  await page.click('#decrypt-command');
   await page.fill('#decrypt-text', cipher);
-  await page.fill('#secret-text', secret);
+  await fit('command-pgp');
+  await page.fill('#decrypt-text', '-----BEGIN AGE ENCRYPTED FILE-----\n');
+  await fit('command-age');
+  await page.setInputFiles('#decrypt-file', [base + 'signed.age']);
+  await idle();
+  await fit('command-age-file');
+  await page.click('#command-tips summary');
+  await fit('command-tips');
+  await page.click('#command-tips summary');
+  await page.click('#decrypt-file-remove');
+  await page.click('#decrypt-web');
+  await page.fill('#decrypt-text', cipher);
+  await fit('web-input');
+  await page.click('#web-key-tips summary');
+  await fit('web-key-tips');
+  await page.click('#web-key-tips summary');
+  await page.setInputFiles('#secret-file', [base + 'recipient-secret.asc']);
   await page.waitForFunction(() => document.getElementById('passphrase').checkVisibility());
   await idle();
   await fit('password');
@@ -151,7 +163,9 @@ await writeFile(
 );
 console.log({
   passed: layouts.length,
-  viewports: layouts.length / 8,
+  viewports: new Set(layouts.map((item) => item.width + 'x' + item.height)).size,
   pageOverflow: Math.max(...layouts.map((item) => item.documentHeight - item.height)),
-  formOverflow: Math.max(...layouts.map((item) => item.panelOverflow)),
+  formOverflow: Math.max(
+    ...layouts.filter((item) => !item.stage.endsWith('tips')).map((item) => item.panelOverflow),
+  ),
 });

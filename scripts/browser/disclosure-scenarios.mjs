@@ -46,6 +46,10 @@ const finished = () =>
 async function clear(mode) {
   await page.click('#' + mode + '-tab');
   await page.click('#clear-button');
+  if (mode === 'decrypt') {
+    await page.click('#decrypt-web');
+    await page.click('#secret-paste summary');
+  }
 }
 await page.fill('#github-user', 'receiver');
 await page.waitForFunction(() => !document.getElementById('recipient-card').hidden);
@@ -100,6 +104,8 @@ for (const [format, key, locked, plain, password] of [
   const cipher = await page.evaluate(() => document.getElementById('result-text').textContent);
   await clear('decrypt');
   await page.fill('#decrypt-text', cipher);
+  if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
+    await page.click('#secret-paste summary');
   await page.fill('#secret-text', await readFile(base + locked, 'utf8'));
   await page.waitForFunction(() => document.getElementById('passphrase').checkVisibility());
   await idle();
@@ -120,6 +126,8 @@ for (const [format, key, locked, plain, password] of [
   );
   await clear('decrypt');
   await page.fill('#decrypt-text', cipher);
+  if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
+    await page.click('#secret-paste summary');
   await page.fill('#secret-text', await readFile(base + plain, 'utf8'));
   await finished();
   assert.equal(
@@ -133,6 +141,8 @@ for (const [format, key, locked, plain, password] of [
   await page.click('#edit-result-button');
   assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
   if (format === 'pgp') {
+    if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
+      await page.click('#secret-paste summary');
     await page.fill('#secret-text', await readFile(base + 'other-secret.asc', 'utf8'));
     await page.waitForFunction(() =>
       [...document.querySelectorAll('.field-error')].some((node) => node.checkVisibility()),
@@ -164,6 +174,8 @@ await page.evaluate(() => {
   };
 });
 await page.fill('#decrypt-text', await readFile(base + 'legacy-native.asc', 'utf8'));
+if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
+  await page.click('#secret-paste summary');
 await page.fill('#secret-text', await readFile(base + 'recipient-secret-unprotected.asc', 'utf8'));
 await page.setInputFiles('#decrypt-file', [base + 'legacy-native.asc']);
 await page.waitForFunction(() => Boolean(window.__finishRead));

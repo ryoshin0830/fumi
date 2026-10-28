@@ -3,6 +3,8 @@ import { renderResultView } from './ui/result.js';
 import { renderSignatureView } from './ui/signature.js';
 import { createRecipientPreview } from './ui/recipient.js';
 import { createCipherMotion } from './ui/motion.js';
+import { createDecryptionCommand } from './ui/decryption.js';
+import { detectFormat } from './files.js';
 import { resolveGitHub, clearGitHubKeyCache } from './recipients.js';
 import { runCrypto, cancelCrypto } from './worker-client.js';
 import { MAX_BYTES, MAX_ENCRYPTED_BYTES, MAX_KEY_BYTES, byteLength } from './limits.js';
@@ -21,6 +23,10 @@ let manualOpen = false;
 let passwordNeeded = false;
 let decryptChecked = false;
 let decryptTimer;
+let decryptMethod = null;
+let commandInfo = null;
+const defaultShell = /Win/i.test(navigator.platform) ? 'powershell' : 'posix';
+$('command-shell').value = defaultShell;
 const recipientPreview = createRecipientPreview({ onKeyFallback: showManualKey });
 const cipherMotion = createCipherMotion();
 const valueOf = (kind) =>
@@ -53,6 +59,11 @@ function errorAt(id, message, input, focus = true) {
 }
 function updateForm() {
   document.documentElement.dataset.operation = mode;
+  $('intro-action').textContent = mode === 'encrypt' ? '暗号化。' : '復号。';
+  $('intro-copy-first').textContent =
+    mode === 'encrypt' ? '宛先のGitHubユーザー名で、' : '受け取った暗号文を、';
+  $('intro-copy-last').textContent =
+    mode === 'encrypt' ? '文章やファイルを暗号化できます。' : 'ブラウザーやコマンドで開けます。';
   for (const operation of ['encrypt', 'decrypt']) {
     $(operation + '-panel').hidden = operation !== mode;
     $(operation + '-tab').setAttribute('aria-selected', String(operation === mode));
@@ -74,6 +85,15 @@ function updateForm() {
       : '別のGitHubユーザー名を入力';
   $('recipient-status').hidden = manualOpen;
   $('password-box').hidden = !passwordNeeded;
+  $('web-key-tips').hidden = passwordNeeded;
+  $('secret-paste-label').textContent = hasValue('secret')
+    ? '入力した秘密鍵を編集'
+    : '秘密鍵を貼り付ける';
+  $('decrypt-content').hidden = !decryptMethod;
+  $('web-decryption').hidden = decryptMethod !== 'web';
+  $('command-decryption').hidden = decryptMethod !== 'command';
+  $('decrypt-web').checked = decryptMethod === 'web';
+  $('decrypt-command').checked = decryptMethod === 'command';
   $('decrypt-status').hidden = decryptChecked && !passwordNeeded && !busy;
   $('decrypt-status').textContent =
     busy && mode === 'decrypt'
@@ -92,8 +112,12 @@ function updateForm() {
     !hasValue(mode) ||
     (mode === 'encrypt'
       ? !(manual || (!manualOpen && $('github-user').value.trim()))
-      : !hasValue('secret') || (passwordNeeded && !$('passphrase').value));
-  $('run-button').hidden = mode === 'decrypt' && !passwordNeeded && !decryptChecked;
+      : decryptMethod !== 'web' ||
+        !hasValue('secret') ||
+        (passwordNeeded && !$('passphrase').value));
+  $('run-button').hidden =
+    mode === 'decrypt' && (decryptMethod !== 'web' || (!passwordNeeded && !decryptChecked));
+  updateCommand();
   if (!busy)
     $('run-label').textContent =
       mode === 'encrypt' ? '暗号化' : passwordNeeded ? '復号' : 'もう一度確認';
@@ -102,6 +126,42 @@ function updateForm() {
   $('workspace').setAttribute('aria-busy', String(busy));
   $('result-cancel-button').hidden =
     !busy || drafts[mode].result?.verification?.state !== 'pending';
+}
+function updateCommand() {
+  const previous = commandInfo?.command;
+  const active = mode === 'decrypt' && decryptMethod === 'command';
+  const data = valueOf('decrypt');
+  const format = active && detectFormat(data);
+  $('command-key-path-box').hidden = format !== 'ssh';
+  $('command-pgp-tip').hidden = format !== 'pgp';
+  $('command-ssh-tip').hidden = format !== 'ssh';
+  $('command-environment-label').textContent =
+    $('command-shell').value === 'powershell' ? 'PowerShell' : 'macOS / Linux';
+  $('command-copy-button').hidden = !active;
+  $('command-save-button').hidden = !active || drafts.decrypt.kind === 'file';
+  commandInfo = null;
+  $('command-error').hidden = true;
+  try {
+    if (active)
+      commandInfo = createDecryptionCommand({
+        data,
+        sourceName: drafts.decrypt.file?.name || '',
+        identity: $('command-key-path').value,
+        shell: $('command-shell').value,
+      });
+  } catch (error) {
+    $('command-error').textContent = error.message;
+    $('command-error').hidden = false;
+  }
+  $('command-output').hidden = !commandInfo;
+  if (previous !== commandInfo?.command) $('command-copy-label').textContent = 'コマンドをコピー';
+  $('terminal-command').textContent = commandInfo?.command || '';
+  $('command-status').hidden = Boolean(format);
+  $('command-status').textContent = hasValue('decrypt')
+    ? '暗号文の形式を確認できません。受け取った内容を確認してください。'
+    : '暗号文を入れると、対応するコマンドが表示されます。';
+  $('command-copy-button').disabled = busy || !commandInfo;
+  $('command-save-button').disabled = busy || !commandInfo;
 }
 function renderResult() {
   renderResultView(drafts[mode].result, mode);
@@ -112,6 +172,8 @@ function setBusy(value, label = '処理中…') {
   busy = value;
   for (const node of $('main-form').querySelectorAll('button,input,textarea,select'))
     node.disabled = value;
+  $('decrypt-web').disabled = false;
+  $('decrypt-command').disabled = false;
   $('cancel-button').disabled = false;
   if (value) {
     $('run-label').textContent = label;
@@ -155,6 +217,7 @@ async function withJob(label, action, errorId = 'operation-error', automatic = f
       if (mode === 'decrypt') decryptChecked = true;
       if (mode === 'decrypt' && error.code === 'PASSPHRASE_REQUIRED') {
         passwordNeeded = true;
+        $('secret-paste').open = false;
         promptPassword = true;
         announce('秘密鍵のパスワードを入力してください。');
       } else {
@@ -191,6 +254,7 @@ function scheduleDecrypt() {
   clearTimeout(decryptTimer);
   if (
     mode !== 'decrypt' ||
+    decryptMethod !== 'web' ||
     busy ||
     decryptChecked ||
     drafts.decrypt.result ||
@@ -288,7 +352,7 @@ async function checkSignature(result, current) {
   announce($('signature-status-title').textContent);
 }
 function performOperation(automatic = false) {
-  if (busy || $('run-button').disabled) return;
+  if (busy || $('run-button').disabled || (mode === 'decrypt' && decryptMethod !== 'web')) return;
   clearTimeout(decryptTimer);
   const operation = mode;
   if (operation === 'decrypt') decryptChecked = true;
@@ -339,6 +403,24 @@ $('main-form').addEventListener('submit', (event) => {
   event.preventDefault();
   performOperation();
 });
+for (const radio of document.querySelectorAll('[name="decrypt-method"]'))
+  radio.addEventListener('change', () => {
+    if (!radio.checked) return;
+    cancelWork();
+    decryptMethod = radio.value;
+    resetDecryptCheck();
+    invalidate('decrypt');
+    scheduleDecrypt();
+  });
+for (const id of ['command-key-path', 'command-shell'])
+  $(id).addEventListener(id === 'command-shell' ? 'change' : 'input', () => {
+    $('command-copy-label').textContent = 'コマンドをコピー';
+    updateCommand();
+  });
+for (const details of document.querySelectorAll('[data-reveal]'))
+  details.addEventListener('toggle', () => {
+    if (details.open) details.scrollIntoView({ block: 'nearest' });
+  });
 function switchMode(next, focus = false) {
   if (next === mode) return;
   cipherMotion.reset();
@@ -382,7 +464,7 @@ for (const kind of Object.keys(drafts)) {
     if (ownerOf(kind) === 'decrypt') resetDecryptCheck();
     invalidate(ownerOf(kind));
     scheduleDecrypt();
-    $(kind + '-text').focus();
+    $(kind === 'secret' ? 'secret-file' : kind + '-text').focus();
   });
   const drop = document.querySelector(`[data-drop="${kind}"]`);
   drop.addEventListener('dragover', (event) => {
@@ -411,7 +493,8 @@ for (const kind of Object.keys(drafts)) {
   });
 }
 async function loadFile(kind, file) {
-  if (!file || busy) return;
+  if (!file || busy || (kind === 'secret' && (mode !== 'decrypt' || decryptMethod !== 'web')))
+    return;
   const errorId =
     kind === 'secret' ? 'secret-error' : kind === 'recipient' ? 'recipient-error' : kind + '-error';
   const limit =
@@ -504,22 +587,68 @@ $('copy-button').addEventListener('click', async () => {
     announce('選択した文字をコピーしてください。');
   }
 });
-$('save-button').addEventListener('click', () => {
-  const result = drafts[mode].result;
-  if (!result || $('save-button').disabled) return;
-  const url = URL.createObjectURL(new Blob([result.bytes], { type: 'application/octet-stream' }));
+function saveBytes(bytes, filename) {
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = result.filename;
+  link.download = filename;
   document.body.append(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+$('save-button').addEventListener('click', () => {
+  const result = drafts[mode].result;
+  if (result && !$('save-button').disabled) saveBytes(result.bytes, result.filename);
+});
+$('command-save-button').addEventListener('click', () => {
+  if (
+    !commandInfo ||
+    $('command-save-button').disabled ||
+    mode !== 'decrypt' ||
+    decryptMethod !== 'command'
+  )
+    return;
+  const data = valueOf('decrypt');
+  saveBytes(typeof data === 'string' ? new TextEncoder().encode(data) : data, commandInfo.filename);
+});
+$('command-copy-button').addEventListener('click', async () => {
+  if (
+    !commandInfo ||
+    $('command-copy-button').disabled ||
+    mode !== 'decrypt' ||
+    decryptMethod !== 'command'
+  )
+    return;
+  const command = commandInfo.command;
+  try {
+    await navigator.clipboard.writeText(command);
+    if (commandInfo?.command === command && decryptMethod === 'command' && mode === 'decrypt') {
+      $('command-copy-label').textContent = 'コピーしました';
+      announce('コマンドをコピーしました。');
+    }
+  } catch {
+    if (commandInfo?.command !== command || mode !== 'decrypt' || decryptMethod !== 'command')
+      return;
+    errorAt('command-error', 'コピーできませんでした。選択したコマンドをコピーしてください。');
+    $('terminal-command').focus();
+    const range = document.createRange();
+    range.selectNodeContents($('terminal-command'));
+    const selection = getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
 });
 $('clear-button').addEventListener('click', () => {
   cancelWork();
   recipientPreview.reset();
   manualOpen = false;
+  decryptMethod = null;
+  $('secret-paste').open = false;
+  $('web-key-tips').open = false;
+  $('command-tips').open = false;
+  $('command-key-path').value = '~/.ssh/id_ed25519';
+  $('command-shell').value = defaultShell;
   resetDecryptCheck();
   clearGitHubKeyCache();
   for (const kind of Object.keys(drafts)) {
@@ -531,7 +660,7 @@ $('clear-button').addEventListener('click', () => {
   $('passphrase').value = '';
   clearErrors();
   renderResult();
-  $(mode + '-text').focus();
+  $(mode === 'decrypt' ? 'decrypt-web' : 'encrypt-text').focus();
   announce('入力と鍵を消去しました。');
 });
 $('help-button').addEventListener('click', () => $('help-dialog').showModal());

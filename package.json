@@ -17,6 +17,7 @@
     "test:motion": "node scripts/browser-check.mjs motion",
     "test:disclosure": "node scripts/browser-check.mjs disclosure",
     "test:layout": "node scripts/browser-check.mjs layout",
+    "test:methods": "node scripts/browser-check.mjs methods",
     "test:cli": "node scripts/check-cli-compatibility.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

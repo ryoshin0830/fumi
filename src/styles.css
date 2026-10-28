@@ -1095,17 +1095,17 @@ dialog details {
 .result-content .result-preview {
   overscroll-behavior: auto;
 }
-.terminal-tips {
+.decryption-tips {
   flex-shrink: 0;
   margin-top: 8px;
   color: var(--secondary);
   font-size: 13px;
   line-height: 1.6;
 }
-.terminal-tips summary {
+.decryption-tips summary {
   min-height: 44px;
 }
-.terminal-tips p {
+.decryption-tips p {
   margin-bottom: 8px;
 }
 #terminal-command {
@@ -1117,6 +1117,111 @@ dialog details {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: all;
+}
+.decrypt-methods {
+  border: 0;
+  margin: 0 0 10px;
+  padding: 0;
+  min-width: 0;
+}
+.decrypt-methods legend {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.decrypt-methods:has(input:checked) legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.decrypt-methods > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.decrypt-methods label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 48px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition:
+    background 160ms,
+    border-color 160ms;
+}
+.decrypt-methods label:has(input:checked) {
+  border-color: var(--blue);
+  background: #edf4fd;
+  color: #004c99;
+}
+.decrypt-methods input {
+  appearance: auto;
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--blue);
+}
+#decrypt-content textarea {
+  height: 56px;
+  min-height: 48px;
+}
+#decrypt-status {
+  margin-top: 6px;
+}
+.command-environment {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+.command-environment label,
+#command-key-path-box > label {
+  font-size: 13px;
+}
+.command-environment select {
+  width: auto;
+  max-width: 65%;
+  min-height: 44px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+#command-key-path-box input {
+  min-height: 44px;
+  padding-block: 8px;
+}
+#command-copy-button {
+  margin-right: auto;
+}
+#command-output {
+  margin-top: 8px;
+}
+#command-output > .field-hint {
+  font-size: 12px;
+  line-height: 1.5;
+}
+#terminal-command {
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 10px;
+}
+.decryption-tips code {
+  overflow-wrap: anywhere;
+}
+.decryption-tips p {
+  line-height: 1.7;
 }
 .delivery-guide {
   display: flex;

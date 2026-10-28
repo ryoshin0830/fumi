@@ -67,8 +67,13 @@
     </header>
     <main class="app-shell">
       <section class="intro" aria-labelledby="intro-title">
-        <h1 id="intro-title">メッセージを<br />暗号化。</h1>
-        <p class="intro-copy">宛先のGitHubユーザー名で、<br />文章やファイルを暗号化できます。</p>
+        <h1 id="intro-title">メッセージを<br /><span id="intro-action">暗号化。</span></h1>
+        <p class="intro-copy">
+          <span id="intro-copy-first">宛先のGitHubユーザー名で、</span><br /><span
+            id="intro-copy-last"
+            >文章やファイルを暗号化できます。</span
+          >
+        </p>
         <div
           id="cipher-illustration"
           class="cipher-illustration"
@@ -243,89 +248,206 @@
               </section>
             </section>
             <section id="decrypt-panel" role="tabpanel" aria-labelledby="decrypt-tab" hidden>
-              <section class="input-group" data-drop="decrypt">
-                <div class="field-toolbar">
-                  <label for="decrypt-text">暗号文</label
-                  ><label class="file-button" for="decrypt-file"
-                    ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
-                      id="decrypt-file"
-                      type="file"
-                      aria-label="暗号文のファイルを選ぶ"
-                  /></label>
-                </div>
-                <div id="decrypt-text-pane">
-                  <textarea
-                    id="decrypt-text"
-                    placeholder="受け取った暗号文"
-                    spellcheck="false"
-                    autocapitalize="none"
-                    aria-describedby="decrypt-error"
-                  ></textarea>
-                </div>
-                <div id="decrypt-file-pane" class="file-chip" hidden>
-                  <svg class="icon" aria-hidden="true"><use href="#file" /></svg
-                  ><span id="decrypt-file-name"></span
-                  ><button
-                    id="decrypt-file-remove"
-                    type="button"
-                    class="quiet-button"
-                    aria-label="暗号文のファイルを取り除く"
+              <fieldset class="decrypt-methods">
+                <legend>復号方法</legend>
+                <div>
+                  <label
+                    ><input id="decrypt-web" name="decrypt-method" type="radio" value="web" /><span
+                      >ブラウザーで復号</span
+                    ></label
                   >
-                    外す
-                  </button>
-                </div>
-              </section>
-              <p id="decrypt-error" class="field-error" role="alert" hidden></p>
-              <section class="input-group" data-drop="secret">
-                <div class="field-toolbar">
-                  <label for="secret-text">秘密鍵</label
-                  ><label class="file-button" for="secret-file"
-                    ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
-                      id="secret-file"
-                      type="file"
-                      aria-label="秘密鍵のファイルを選ぶ"
-                  /></label>
-                </div>
-                <div id="secret-text-pane">
-                  <textarea
-                    id="secret-text"
-                    placeholder="秘密鍵を貼り付け"
-                    spellcheck="false"
-                    autocapitalize="none"
-                    aria-describedby="secret-error"
-                  ></textarea>
-                </div>
-                <div id="secret-file-pane" class="file-chip" hidden>
-                  <svg class="icon" aria-hidden="true"><use href="#file" /></svg
-                  ><span id="secret-file-name"></span
-                  ><button
-                    id="secret-file-remove"
-                    type="button"
-                    class="quiet-button"
-                    aria-label="秘密鍵のファイルを取り除く"
+                  <label
+                    ><input
+                      id="decrypt-command"
+                      name="decrypt-method"
+                      type="radio"
+                      value="command"
+                    /><span>コマンドで復号</span></label
                   >
-                    外す
-                  </button>
                 </div>
-              </section>
-              <p id="decrypt-status" class="field-hint" role="status" aria-live="polite">
-                暗号文と秘密鍵を入力すると、自動で復号を試します。
-              </p>
-              <div id="password-box" hidden>
-                <label class="password-label" for="passphrase">秘密鍵のパスワード</label>
-                <input
-                  id="passphrase"
-                  data-1p-ignore
-                  type="password"
-                  autocomplete="off"
-                  spellcheck="false"
-                  aria-describedby="decrypt-status secret-error"
-                />
+              </fieldset>
+              <div id="decrypt-content" hidden>
+                <section class="input-group" data-drop="decrypt">
+                  <div class="field-toolbar">
+                    <label for="decrypt-text">暗号文</label
+                    ><label class="file-button" for="decrypt-file"
+                      ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
+                      >ファイル<input
+                        id="decrypt-file"
+                        type="file"
+                        aria-label="暗号文のファイルを選ぶ"
+                    /></label>
+                  </div>
+                  <div id="decrypt-text-pane">
+                    <textarea
+                      id="decrypt-text"
+                      placeholder="受け取った暗号文"
+                      spellcheck="false"
+                      autocapitalize="none"
+                      aria-describedby="decrypt-error"
+                    ></textarea>
+                  </div>
+                  <div id="decrypt-file-pane" class="file-chip" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#file" /></svg
+                    ><span id="decrypt-file-name"></span
+                    ><button
+                      id="decrypt-file-remove"
+                      type="button"
+                      class="quiet-button"
+                      aria-label="暗号文のファイルを取り除く"
+                    >
+                      外す
+                    </button>
+                  </div>
+                </section>
+                <p id="decrypt-error" class="field-error" role="alert" hidden></p>
+                <div id="web-decryption" hidden>
+                  <section class="input-group" data-drop="secret">
+                    <div class="field-toolbar">
+                      <label for="secret-text">秘密鍵</label
+                      ><label class="file-button" for="secret-file"
+                        ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
+                        >ファイルを選ぶ<input
+                          id="secret-file"
+                          type="file"
+                          aria-label="秘密鍵のファイルを選ぶ"
+                      /></label>
+                    </div>
+                    <div id="secret-text-pane">
+                      <details id="secret-paste">
+                        <summary id="secret-paste-label">秘密鍵を貼り付ける</summary>
+                        <textarea
+                          id="secret-text"
+                          placeholder="秘密鍵を貼り付け"
+                          spellcheck="false"
+                          autocapitalize="none"
+                          aria-describedby="secret-error"
+                        ></textarea>
+                      </details>
+                    </div>
+                    <div id="secret-file-pane" class="file-chip" hidden>
+                      <svg class="icon" aria-hidden="true"><use href="#file" /></svg
+                      ><span id="secret-file-name"></span
+                      ><button
+                        id="secret-file-remove"
+                        type="button"
+                        class="quiet-button"
+                        aria-label="秘密鍵のファイルを取り除く"
+                      >
+                        外す
+                      </button>
+                    </div>
+                  </section>
+                  <p id="decrypt-status" class="field-hint" role="status" aria-live="polite">
+                    暗号文と秘密鍵を入力すると、自動で復号を試します。
+                  </p>
+                  <div id="password-box" hidden>
+                    <label class="password-label" for="passphrase">秘密鍵のパスワード</label>
+                    <input
+                      id="passphrase"
+                      data-1p-ignore
+                      type="password"
+                      autocomplete="off"
+                      spellcheck="false"
+                      aria-describedby="decrypt-status secret-error"
+                    />
+                  </div>
+                  <p id="secret-error" class="field-error" role="alert" hidden></p>
+                  <details id="web-key-tips" class="decryption-tips" data-reveal>
+                    <summary>Tips：秘密鍵の場所</summary>
+                    <p>
+                      SSH鍵は通常 <code>~/.ssh</code> にあります。<code>.pub</code>
+                      は公開鍵です。対応する秘密鍵ファイルを選びます。
+                    </p>
+                    <p>
+                      <code>gh</code>で新規作成した鍵の候補は
+                      <code>~/.ssh/id_ed25519</code> です。別の名前・場所の鍵の場合もあります。
+                    </p>
+                    <p>
+                      macOS：ファイル選択画面で <kbd>⌘⇧G</kbd> を押し、<code>~/.ssh</code>
+                      を入力します。Windows：アドレス欄に
+                      <code>%USERPROFILE%\.ssh</code> を入力します。
+                    </p>
+                    <p>GPGでは、対応する秘密鍵のファイルを選んでください。</p>
+                  </details>
+                </div>
+                <section id="command-decryption" hidden aria-label="コマンドで復号">
+                  <p id="command-status" class="field-hint" role="status">
+                    暗号文を入れると、対応するコマンドが表示されます。
+                  </p>
+                  <div id="command-key-path-box" hidden>
+                    <label for="command-key-path">SSH秘密鍵のパス（例）</label>
+                    <input
+                      id="command-key-path"
+                      type="text"
+                      value="~/.ssh/id_ed25519"
+                      spellcheck="false"
+                      autocapitalize="none"
+                      aria-describedby="command-error"
+                    />
+                  </div>
+                  <div id="command-output" hidden>
+                    <p class="field-hint">
+                      <span id="command-environment-label">macOS / Linux</span
+                      >：保存したフォルダーで実行します。
+                    </p>
+                    <pre
+                      id="terminal-command"
+                      tabindex="0"
+                      aria-label="復号コマンド"
+                      translate="no"
+                    ></pre>
+                  </div>
+                  <p id="command-error" class="field-error" role="alert" hidden></p>
+                  <details id="command-tips" class="decryption-tips" data-reveal>
+                    <summary>Tips：鍵の場所と準備</summary>
+                    <div class="command-environment">
+                      <label for="command-shell">実行する環境</label>
+                      <select id="command-shell">
+                        <option value="posix">macOS / Linux</option>
+                        <option value="powershell">Windows（PowerShell）</option>
+                      </select>
+                    </div>
+
+                    <p id="command-pgp-tip">
+                      GPGと、暗号化に使われた公開鍵に対応する秘密鍵の登録が必要です。
+                      <a
+                        href="https://gnupg.org/download/"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        >GPGの入手方法</a
+                      >
+                    </p>
+                    <div id="command-ssh-tip" hidden>
+                      <p>
+                        <code>age</code
+                        >と、対応するSSH秘密鍵ファイルが必要です。<code>gh</code>で新規作成した場合の候補は
+                        <code>~/.ssh/id_ed25519</code> です。
+                        <a
+                          href="https://github.com/FiloSottile/age#installation"
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          >ageの入手方法</a
+                        >
+                      </p>
+                      <p>
+                        既存の鍵を登録した場合は別の場所にあることもあります。<code>.pub</code>は公開鍵です。
+                      </p>
+                      <p>SSHエージェント内だけの鍵は、このageコマンドでは使えません。</p>
+                    </div>
+                    <p>新しい鍵を作り直す必要はありません。暗号化されたときの鍵を使います。</p>
+                  </details>
+                </section>
               </div>
-              <p id="secret-error" class="field-error" role="alert" hidden></p>
             </section>
             <p id="operation-error" class="field-error" role="alert" hidden></p>
             <div class="form-actions">
+              <button id="command-copy-button" type="button" class="primary-button" hidden>
+                <span id="command-copy-label">コマンドをコピー</span>
+              </button>
+              <button id="command-save-button" type="button" class="secondary-button" hidden>
+                暗号文を保存
+              </button>
               <button id="cancel-button" type="button" class="quiet-button" hidden>中止</button
               ><button id="run-button" type="submit" class="primary-button" disabled>
                 <svg class="icon" aria-hidden="true"><use href="#lock" /></svg>
@@ -403,17 +525,6 @@
               ></pre>
               <p id="preview-hint" class="field-hint" hidden></p>
               <p id="result-error" class="field-error" role="alert" hidden></p>
-              <details id="terminal-tips" class="terminal-tips" hidden>
-                <summary>Tips：コマンドで復号</summary>
-                <p>暗号文を「保存」して、保存したフォルダーで実行します。</p>
-                <pre
-                  id="terminal-command"
-                  tabindex="0"
-                  aria-label="復号コマンド"
-                  translate="no"
-                ></pre>
-                <p id="terminal-key-hint"></p>
-              </details>
             </div>
             <div class="result-actions">
               <button id="copy-button" type="button" class="primary-button">

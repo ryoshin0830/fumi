@@ -7,7 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..') + sep;
 const url = new URL(process.env.FUMI_URL || 'http://127.0.0.1:3000/');
 if (!['http:', 'https:'].includes(url.protocol))
   throw new Error('FUMI_URL must be an HTTP(S) URL.');
-const suite = ['motion', 'disclosure', 'layout'].includes(process.argv[2])
+const suite = ['motion', 'disclosure', 'layout', 'methods'].includes(process.argv[2])
   ? process.argv[2] + '-scenarios.mjs'
   : 'scenarios.mjs';
 const source = (await readFile(new URL('./browser/' + suite, import.meta.url), 'utf8'))
