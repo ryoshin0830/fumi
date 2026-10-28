@@ -121,6 +121,30 @@ try {
     },
   ];
   const cases = [];
+  const generatedSourceCommands = [];
+  const clipboardCounter = join(directory, 'stub-clipboard-counter');
+  const clipboardKey = join(directory, 'stub-clipboard-key');
+  const clipboardCipher = join(directory, 'stub-clipboard-cipher');
+  // Never invoke a host clipboard. Each prompt consumes the next disposable fixture.
+  const clipboardStub = `#!/bin/sh
+count=$(cat "$FUMI_CLIPBOARD_COUNTER") || exit 1
+printf '%s' "$((count + 1))" > "$FUMI_CLIPBOARD_COUNTER" || exit 1
+if [ "$count" = 0 ] && [ "$FUMI_CLIPBOARD_HAS_KEY" = 1 ]; then
+  cat "$FUMI_CLIPBOARD_KEY"
+else
+  cat "$FUMI_CLIPBOARD_CIPHER"
+fi
+`;
+  for (const tool of ['pbpaste', 'wl-paste', 'xclip']) {
+    await writeFile(join(directory, tool), clipboardStub, { mode: 0o700 });
+  }
+  const defaultKeyringBefore = run('gpg', [
+    '--no-options',
+    '--homedir',
+    gnupg,
+    '--batch',
+    '--export-secret-keys',
+  ]);
   for (const format of ['pgp', 'ssh'])
     for (const input of inputs)
       for (const signing of ['none', 'pgp', 'ssh']) {
@@ -271,26 +295,70 @@ try {
           }
         }
         if (signing === 'none') {
-          const { command } = createDecryptionCommand({
-            data: encrypted.bytes,
-            sourceName: encrypted.filename,
-            identity: sshReceiver,
-          });
-          const execution = spawnSync('/bin/sh', ['-c', command], {
-            cwd: caseDirectory,
-            env: {
-              ...process.env,
-              PATH: directory + delimiter + process.env.PATH,
-              GNUPGHOME: gnupg,
-            },
-            encoding: 'utf8',
-          });
-          assert.equal(execution.status, 0, execution.stderr);
-          assert.deepEqual(await readFile(join(caseDirectory, 'restored')), input.bytes);
+          const privateKey =
+            format === 'pgp' ? receiver.privateKey : await readFile(sshReceiver, 'utf8');
+          await writeFile(clipboardKey, privateKey, { mode: 0o600 });
+          await writeFile(clipboardCipher, encrypted.bytes, { mode: 0o600 });
+          const keySources =
+            format === 'pgp' ? ['keyring', 'file', 'clipboard'] : ['file', 'clipboard'];
+          for (const keySource of keySources)
+            for (const inputSource of ['file', 'clipboard']) {
+              const clipboardTool = ['pbpaste', 'wl-paste', 'xclip'][
+                generatedSourceCommands.length % 3
+              ];
+              const { command } = createDecryptionCommand({
+                data: encrypted.bytes,
+                sourceName: encrypted.filename,
+                keySource,
+                inputSource,
+                clipboardTool,
+                identity: format === 'pgp' ? keyFile : sshReceiver,
+              });
+              assert.ok(!command.includes(privateKey));
+              await rm(join(caseDirectory, 'restored'), { force: true });
+              await writeFile(clipboardCounter, '0');
+              const execution = spawnSync('/bin/sh', ['-c', command], {
+                cwd: caseDirectory,
+                env: {
+                  ...process.env,
+                  PATH: directory + delimiter + process.env.PATH,
+                  GNUPGHOME: gnupg,
+                  FUMI_CLIPBOARD_COUNTER: clipboardCounter,
+                  FUMI_CLIPBOARD_KEY: clipboardKey,
+                  FUMI_CLIPBOARD_CIPHER: clipboardCipher,
+                  FUMI_CLIPBOARD_HAS_KEY: keySource === 'clipboard' ? '1' : '0',
+                },
+                input: '\n\n',
+                encoding: 'utf8',
+              });
+              assert.equal(
+                execution.status,
+                0,
+                `${id}/${keySource}/${inputSource}: ${execution.stderr}`,
+              );
+              assert.deepEqual(await readFile(join(caseDirectory, 'restored')), input.bytes);
+              const clipboardReads = Number(await readFile(clipboardCounter, 'utf8'));
+              assert.equal(
+                clipboardReads,
+                Number(keySource === 'clipboard') + Number(inputSource === 'clipboard'),
+              );
+              generatedSourceCommands.push({
+                id,
+                keySource,
+                inputSource,
+                clipboardTool: clipboardReads ? clipboardTool : null,
+                clipboardReads,
+                restoredBytesIdentical: true,
+              });
+            }
           row.generatedCommandVerified = true;
         }
         cases.push(row);
       }
+  assert.deepEqual(
+    run('gpg', ['--no-options', '--homedir', gnupg, '--batch', '--export-secret-keys']),
+    defaultKeyringBefore,
+  );
   // Baseline: standard OpenPGP signing and encryption produces the original data and automatic GPG verification.
   const native = await pgp.encrypt({
     message: await pgp.createMessage({
@@ -325,6 +393,7 @@ try {
       ssh: String(spawnSync('ssh', ['-V']).stderr).trim(),
     },
     cases,
+    generatedSourceCommands,
     standardOpenPGPBaseline: {
       originalDataDirectlyReadable: true,
       nativeAutomaticSignatureVerification: true,
@@ -339,6 +408,7 @@ try {
     JSON.stringify(
       {
         cases: cases.length,
+        generatedSourceCommands: generatedSourceCommands.length,
         signedArchives: cases.filter((row) => row.archiveEntries).length,
         directOriginalOutputs: cases.filter((row) => row.directlyOriginalData).length,
         automaticGPGSignatures: cases.filter((row) => row.nativeAutomaticSignatureVerification)

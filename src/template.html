@@ -267,16 +267,24 @@
                 </div>
               </fieldset>
               <div id="decrypt-content" hidden>
-                <section class="input-group" data-drop="decrypt">
+                <div id="command-cipher-summary" class="file-chip" hidden>
+                  <span id="command-cipher-name"></span
+                  ><button id="command-edit-cipher" type="button" class="quiet-button">変更</button>
+                </div>
+                <section id="decrypt-source-group" class="input-group" data-drop="decrypt">
                   <div class="field-toolbar">
-                    <label for="decrypt-text">暗号文</label
-                    ><label class="file-button" for="decrypt-file"
-                      ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
-                      >ファイル<input
-                        id="decrypt-file"
-                        type="file"
-                        aria-label="暗号文のファイルを選ぶ"
-                    /></label>
+                    <label for="decrypt-text">暗号文</label>
+                    <div class="field-input-actions">
+                      <button id="decrypt-paste-button" type="button" class="quiet-button">
+                        貼り付け</button
+                      ><label class="file-button" for="decrypt-file"
+                        ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
+                        >ファイル<input
+                          id="decrypt-file"
+                          type="file"
+                          aria-label="暗号文のファイルを選ぶ"
+                      /></label>
+                    </div>
                   </div>
                   <div id="decrypt-text-pane">
                     <textarea
@@ -316,6 +324,9 @@
                     <div id="secret-text-pane">
                       <details id="secret-paste">
                         <summary id="secret-paste-label">秘密鍵を貼り付ける</summary>
+                        <button id="secret-paste-button" type="button" class="quiet-button">
+                          クリップボードから貼り付け
+                        </button>
                         <textarea
                           id="secret-text"
                           placeholder="秘密鍵を貼り付け"
@@ -375,21 +386,55 @@
                   <p id="command-status" class="field-hint" role="status">
                     暗号文を入れると、対応するコマンドが表示されます。
                   </p>
-                  <div id="command-key-path-box" hidden>
-                    <label for="command-key-path">SSH秘密鍵のパス（例）</label>
-                    <input
-                      id="command-key-path"
-                      type="text"
-                      value="~/.ssh/id_ed25519"
-                      spellcheck="false"
-                      autocapitalize="none"
-                      aria-describedby="command-error"
-                    />
+                  <div id="command-source-options" hidden>
+                    <div class="command-source-row">
+                      <label class="command-option-label" for="command-input-source">暗号文</label>
+                      <select id="command-input-source">
+                        <option value="file">ファイルを保存して使う</option>
+                        <option id="command-cipher-clipboard-option" value="clipboard">
+                          クリップボードから読む
+                        </option>
+                      </select>
+                    </div>
+                    <div id="command-key-options" hidden>
+                      <div class="command-source-row">
+                        <label class="command-option-label" for="command-key-source">秘密鍵</label>
+                        <select id="command-key-source">
+                          <option value="">選択してください</option>
+                          <option id="command-keyring-option" value="keyring">
+                            GPGに登録済みの鍵を使う
+                          </option>
+                          <option value="file">秘密鍵ファイルを使う</option>
+                          <option value="clipboard">クリップボードから読む</option>
+                        </select>
+                      </div>
+                      <div id="command-key-path-box" hidden>
+                        <div class="field-toolbar">
+                          <label for="command-key-path">秘密鍵ファイルのパス</label
+                          ><label class="file-button" for="command-key-file"
+                            >ファイル名を選ぶ<input
+                              id="command-key-file"
+                              type="file"
+                              aria-label="秘密鍵ファイルの名前を選ぶ"
+                          /></label>
+                        </div>
+                        <input
+                          id="command-key-path"
+                          type="text"
+                          placeholder="例：~/.ssh/id_ed25519"
+                          spellcheck="false"
+                          autocapitalize="none"
+                          aria-describedby="command-error"
+                        />
+                      </div>
+                    </div>
+                    <p id="command-source-hint" class="field-hint"></p>
                   </div>
-                  <div id="command-output" hidden>
+                  <details id="command-output" hidden>
+                    <summary>コマンドを確認</summary>
                     <p class="field-hint">
                       <span id="command-environment-label">macOS / Linux</span
-                      >：保存したフォルダーで実行します。
+                      ><span id="command-execution-hint"></span>
                     </p>
                     <pre
                       id="terminal-command"
@@ -397,10 +442,22 @@
                       aria-label="復号コマンド"
                       translate="no"
                     ></pre>
-                  </div>
+                  </details>
                   <p id="command-error" class="field-error" role="alert" hidden></p>
                   <details id="command-tips" class="decryption-tips" data-reveal>
                     <summary>Tips：鍵の場所と準備</summary>
+                    <details id="command-cipher-path-box" hidden>
+                      <summary>暗号文ファイルの場所を変更</summary>
+                      <label class="command-option-label" for="command-cipher-path"
+                        >暗号文ファイルの名前／パス</label
+                      ><input
+                        id="command-cipher-path"
+                        type="text"
+                        spellcheck="false"
+                        autocapitalize="none"
+                        aria-describedby="command-error"
+                      />
+                    </details>
                     <div class="command-environment">
                       <label for="command-shell">実行する環境</label>
                       <select id="command-shell">
@@ -409,8 +466,19 @@
                       </select>
                     </div>
 
+                    <div id="command-clipboard-tool-box" hidden>
+                      <label class="command-option-label" for="command-clipboard-tool"
+                        >クリップボードを読む環境</label
+                      ><select id="command-clipboard-tool">
+                        <option value="">選択してください</option>
+                        <option value="pbpaste">macOS（pbpaste）</option>
+                        <option value="powershell">Windows（PowerShell）</option>
+                        <option value="wl-paste">Linux（Wayland）</option>
+                        <option value="xclip">Linux（X11）</option>
+                      </select>
+                    </div>
                     <p id="command-pgp-tip">
-                      GPGと、暗号化に使われた公開鍵に対応する秘密鍵の登録が必要です。
+                      GPGが必要です。秘密鍵ファイル・クリップボードを選んだ場合は、一時領域に読み込んで終了時に削除します。
                       <a
                         href="https://gnupg.org/download/"
                         target="_blank"
