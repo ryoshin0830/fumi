@@ -71,9 +71,9 @@ for (const id of ['decrypt-content', 'secret-text', 'passphrase'])
   assert.equal(await visible(id), false, id + ' initially hidden');
 await page.click('#decrypt-web');
 assert.equal(await visible('secret-file'), true);
-assert.equal(await page.evaluate(() => document.getElementById('secret-paste').open), false);
-assert.equal(await visible('secret-text'), false);
-await page.click('#secret-paste summary');
+assert.equal(await page.evaluate(() => Boolean(document.getElementById('secret-paste'))), false);
+assert.equal(await visible('secret-text'), true);
+
 await page.fill('#secret-text', protectedKey);
 await page.evaluate(() => {
   window.__methodDecryptCalls = 0;
@@ -154,9 +154,12 @@ assert.equal(
 );
 await page.selectOption('#command-key-source', 'keyring');
 await page.waitForFunction(() =>
-  document.getElementById('terminal-command').textContent.startsWith('gpg '),
+  document
+    .getElementById('terminal-command')
+    .textContent.includes('gpg --output restored --decrypt'),
 );
-assert.equal(await command(), "gpg --output restored --decrypt './message.txt.asc'");
+assert.match(await command(), /GPG_TTY=\$\(tty\)/);
+assert.match(await command(), /gpg --output restored --decrypt '\.\/message.txt.asc'/);
 await page.click('#command-tips > summary');
 await page.click('#command-cipher-path-box summary');
 await page.fill('#command-cipher-path', "~/Downloads/received's.asc");
@@ -436,7 +439,7 @@ await page.evaluate(() => {
   window.__methodDelayRead = false;
 });
 await page.fill('#decrypt-text', pgp);
-await page.click('#secret-paste summary');
+
 await page.evaluate(() => {
   window.__methodReadFails = true;
 });
@@ -509,8 +512,7 @@ assert.equal(
   'cancelled private-key file was never committed',
 );
 // Finish with a real unsigned web round trip, independent of signed legacy fixtures.
-if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
-  await page.click('#secret-paste summary');
+
 await page.fill('#decrypt-text', pgp);
 await page.evaluate((unprotectedKey) => {
   window.__methodReadFails = false;

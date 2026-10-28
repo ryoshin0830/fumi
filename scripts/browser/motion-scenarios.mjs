@@ -208,10 +208,9 @@ const cipher = await page.evaluate(() => document.getElementById('result-text').
 assert.match(cipher, /^-----BEGIN PGP MESSAGE-----/);
 await page.click('#decrypt-tab');
 await page.click('#decrypt-web');
-await page.click('#secret-paste summary');
+
 await page.fill('#decrypt-text', cipher);
-if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
-  await page.click('#secret-paste summary');
+
 await page.fill('#secret-text', secretKey);
 await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'test-recipient-pass');

@@ -8,6 +8,10 @@ import { createDecryptionCommand } from '../src/ui/decryption.js';
 
 const pgp = '-----BEGIN PGP MESSAGE-----\n';
 const age = '-----BEGIN AGE ENCRYPTED FILE-----\n';
+const fakeSecret =
+  '-----BEGIN PGP PRIVATE KEY BLOCK-----\ndisposable test only\n-----END PGP PRIVATE KEY BLOCK-----\n';
+const fakeCipher =
+  '-----BEGIN PGP MESSAGE-----\ndisposable ciphertext\n-----END PGP MESSAGE-----\n';
 const create = (options = {}) =>
   createDecryptionCommand({ data: pgp, keySource: 'keyring', ...options });
 const createAge = (options = {}) =>
@@ -32,11 +36,12 @@ test('requires an explicit key source and detects content independently of its f
   }
 });
 
-test('keeps the ordinary GPG keyring command and exact source filename', () => {
+test('sets GPG terminal context and keeps the exact source filename', () => {
   assert.deepEqual(create(), {
     format: 'pgp',
     filename: 'message.txt.asc',
-    command: "gpg --output restored --decrypt './message.txt.asc'",
+    command:
+      "(\n  if [ -t 0 ]; then GPG_TTY=$(tty); export GPG_TTY; fi\n  gpg --output restored --decrypt './message.txt.asc'\n)",
   });
   assert.equal(createAge().filename, 'message.txt.age');
   const sourceName = '  日本語 report.v2.age  ';
@@ -194,6 +199,7 @@ test('clipboard commands require a selected known native tool on POSIX', () => {
     assert.ok(command.indexOf('暗号文をコピーして Enter') < command.indexOf(expected));
     assert.ok(!command.includes("'./message.txt.asc'"));
     assert.match(command, /IFS= read -r .*\|\| exit/);
+    assert.ok(command.indexOf('stty -echo') < command.indexOf('暗号文をコピーして Enter'));
   }
 });
 
@@ -282,8 +288,13 @@ test('both clipboard sources are acquired after separate prompts and cleaned wit
         inputSource: 'clipboard',
         clipboardTool: 'pbpaste',
       }).command;
-      const secret = 'disposable secret only in fake clipboard';
-      const ciphertext = Buffer.from([1, 0, 2, 10, 10]);
+      const secret =
+        data === pgp
+          ? fakeSecret
+          : fakeSecret.replaceAll('PGP PRIVATE KEY BLOCK', 'OPENSSH PRIVATE KEY');
+      const ciphertext = Buffer.from(
+        data === pgp ? fakeCipher : fakeCipher.replaceAll('PGP MESSAGE', 'AGE ENCRYPTED FILE'),
+      );
       assert.ok(!command.includes(secret));
       const result = await runWithPrompts(command, fixture, [secret, ciphertext]);
       assert.equal(result.status, 0, result.stderr);
@@ -333,7 +344,7 @@ test('clipboard read failure, import failure, decryption failure, interruption a
           : await runWithPrompts(
               command,
               fixture,
-              failure === 'TERM' ? [null] : ['secret', 'cipher'],
+              failure === 'TERM' ? [null] : [fakeSecret, fakeCipher],
               { [failure]: '1' },
             );
       assert.notEqual(result.status, 0);
@@ -362,6 +373,9 @@ test('PowerShell clipboard/key isolation has scoped cleanup, native failure chec
     assert.match(command, /Remove-Item/);
     assert.match(command, /SetAccessRuleProtection/);
     assert.match(command, /\$LASTEXITCODE -ne 0/);
+    assert.match(command, /Read-Host \$prompt -AsSecureString/);
+    assert.ok(command.includes('+= "`n" + $fumiLine'));
+    assert.match(command, /while \(\$fumiLine -ne \$fumiEnd\)/);
     assert.equal((command.match(/Get-Clipboard -Raw/g) || []).length, 2);
     assert.ok(command.indexOf('秘密鍵をコピーして Enter') < command.indexOf('Get-Clipboard -Raw'));
     assert.ok(command.indexOf('暗号文をコピーして Enter') > command.indexOf('Get-Clipboard -Raw'));
@@ -385,10 +399,34 @@ test('FIFO clipboard stubs stream one payload per prompt without a pipeline fail
       inputSource: 'clipboard',
       clipboardTool: 'pbpaste',
     }).command;
-    const result = await runWithPrompts(command, fixture, ['one secret', 'one ciphertext']);
+    const result = await runWithPrompts(command, fixture, [fakeSecret, fakeCipher]);
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.prompts, 2);
-    assert.equal(await readFile(join(fixture.directory, 'restored'), 'utf8'), 'one ciphertext');
+    assert.equal(await readFile(join(fixture.directory, 'restored'), 'utf8'), fakeCipher);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test('multiline paste is consumed completely and a key at the ciphertext prompt is rejected before retry', async () => {
+  const fixture = await shellFixture();
+  try {
+    const command = create({
+      keySource: 'clipboard',
+      inputSource: 'clipboard',
+      clipboardTool: 'pbpaste',
+    }).command;
+    const result = spawnSync('/bin/sh', ['-c', command], {
+      cwd: fixture.directory,
+      env: fixture.env,
+      encoding: 'utf8',
+      input: fakeSecret + fakeSecret + fakeCipher,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(await readFile(join(fixture.directory, 'restored'), 'utf8'), fakeCipher);
+    assert.match(result.stderr, /暗号文が見つかりません/);
+    assert.equal((result.stderr.match(/暗号文をコピーして Enter/g) || []).length, 2);
+    assert.equal((await readFile(fixture.env.FUMI_LOG, 'utf8')).includes('clipboard'), false);
   } finally {
     await fixture.cleanup();
   }
