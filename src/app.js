@@ -175,8 +175,7 @@ function updateCommand() {
   const compact = active && ready && !cipherExpanded;
   $('decrypt-source-group').hidden = compact;
   $('command-cipher-summary').hidden = !compact;
-  $('command-cipher-name').textContent =
-    inputSource === 'clipboard' ? '暗号文：クリップボードから読む' : filename;
+  $('command-cipher-name').textContent = inputSource === 'clipboard' ? '入力した暗号文' : filename;
   $('command-source-options').hidden = !format;
   $('command-key-options').hidden = !ready;
   $('command-cipher-path-box').hidden = inputSource !== 'file' || !prepared;
