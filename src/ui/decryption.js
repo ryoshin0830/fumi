@@ -7,8 +7,8 @@ const clipboardCommands = {
   'wl-paste': 'wl-paste --no-newline',
   xclip: 'xclip -selection clipboard -out',
 };
-const keyPrompt = '秘密鍵をコピーして Enter を押してください。';
-const cipherPrompt = '暗号文をコピーして Enter を押してください。';
+const keyPrompt = '秘密鍵をコピーして Enter を押してください。直接貼り付けることもできます。';
+const cipherPrompt = '暗号文をコピーして Enter を押してください。直接貼り付けることもできます。';
 
 export function createDecryptionCommand({
   data,
@@ -87,10 +87,12 @@ export function createDecryptionCommand({
     format === 'pgp'
       ? `gpg${isolatedGpg ? (shell === 'posix' ? ' --no-options --homedir "$fumi_tmp"' : ' --no-options --homedir $fumiTemp') : ''} --output restored --decrypt`
       : `age --decrypt --identity ${temporaryKey ? (shell === 'posix' ? '"$fumi_tmp/identity"' : '$fumiIdentity') : key} --output restored`;
-  if (!temporary && !clipboard) return { format, filename, command: `${decrypt} ${input}` };
+  if (!temporary && !clipboard && (format !== 'pgp' || shell !== 'posix'))
+    return { format, filename, command: `${decrypt} ${input}` };
 
   if (shell === 'posix') {
     const lines = ['('];
+    if (format === 'pgp') lines.push('  if [ -t 0 ]; then GPG_TTY=$(tty); export GPG_TTY; fi');
     if (temporary) {
       lines.push(
         '  umask 077',
@@ -98,6 +100,9 @@ export function createDecryptionCommand({
         '  fumi_cleanup() {',
         '    fumi_status=$?',
         '    trap - 0 HUP INT TERM',
+        ...(clipboard
+          ? ['    if [ -n "${fumi_tty:-}" ]; then stty "$fumi_tty" 2>/dev/null || :; fi']
+          : []),
         ...(isolatedGpg
           ? ['    gpgconf --homedir "$fumi_tmp" --kill gpg-agent >/dev/null 2>&1 || :']
           : []),
@@ -110,13 +115,41 @@ export function createDecryptionCommand({
         "  trap 'exit 143' TERM",
       );
     }
-    const readClipboard = (prompt, target) =>
+    const readClipboard = (prompt, target, expected, label) =>
       lines.push(
-        `  printf '%s\\n' ${quote(prompt)} >&2`,
-        '  IFS= read -r fumi_enter || exit 1',
-        `  ${clipboardCommands[clipboardTool]} > "${target}" || exit 1`,
+        '  while :; do',
+        '    fumi_tty=',
+        '    if [ -t 0 ]; then fumi_tty=$(stty -g); stty -echo; fi',
+        `    printf '%s\\n' ${quote(prompt)} >&2`,
+        '    IFS= read -r fumi_enter || exit 1',
+        '    if [ -z "$fumi_enter" ]; then',
+        `      ${clipboardCommands[clipboardTool]} > "${target}" || exit 1`,
+        '    else',
+        `      printf '%s\\n' "$fumi_enter" > "${target}"`,
+        '      case "$fumi_enter" in',
+        "        '-----BEGIN '*'-----')",
+        "          fumi_end=$(printf '%s' \"$fumi_enter\" | sed 's/BEGIN /END /')",
+        '          while IFS= read -r fumi_line; do',
+        `            printf '%s\\n' "$fumi_line" >> "${target}"`,
+        '            [ "$fumi_line" != "$fumi_end" ] || break',
+        '          done',
+        '          [ "${fumi_line:-}" = "$fumi_end" ] || exit 1 ;;',
+        '      esac',
+        '    fi',
+        '    if [ -n "$fumi_tty" ]; then stty "$fumi_tty"; fumi_tty=; fi',
+        `    grep -aEq ${quote(expected)} "${target}" && break`,
+        `    printf '%s\\n' ${quote(label + 'が見つかりません。入力する内容を確認して、もう一度お試しください。')} >&2`,
+        '  done',
       );
-    if (temporaryKey) readClipboard(keyPrompt, '$fumi_tmp/identity');
+    if (temporaryKey)
+      readClipboard(
+        keyPrompt,
+        '$fumi_tmp/identity',
+        format === 'pgp'
+          ? '^-----BEGIN PGP PRIVATE KEY BLOCK-----'
+          : '^-----BEGIN (OPENSSH |RSA |EC |ENCRYPTED )?PRIVATE KEY-----|^AGE-SECRET-KEY-1',
+        '秘密鍵',
+      );
     if (isolatedGpg) {
       lines.push(
         `  gpg --no-options --homedir "$fumi_tmp" --batch --import ${temporaryKey ? '"$fumi_tmp/identity"' : key} || exit $?`,
@@ -124,7 +157,12 @@ export function createDecryptionCommand({
     }
     if (inputSource === 'clipboard') {
       // Staging preserves bytes and catches clipboard failure before native decryption.
-      readClipboard(cipherPrompt, '$fumi_tmp/ciphertext');
+      readClipboard(
+        cipherPrompt,
+        '$fumi_tmp/ciphertext',
+        format === 'pgp' ? '^-----BEGIN PGP MESSAGE-----' : '^-----BEGIN AGE ENCRYPTED FILE-----',
+        '暗号文',
+      );
       lines.push(`  ${decrypt} < "$fumi_tmp/ciphertext"`);
     } else {
       lines.push(`  ${decrypt} ${input}`);
@@ -133,7 +171,16 @@ export function createDecryptionCommand({
     return { format, filename, command: lines.join('\n') };
   }
 
-  const lines = ['& {', "  $ErrorActionPreference = 'Stop'", '  $fumiTemp = $null', '  try {'];
+  const lines = ['& {', "  $ErrorActionPreference = 'Stop'", '  $fumiTemp = $null'];
+  if (clipboard)
+    lines.push(
+      '  function Read-FumiLine([string]$prompt) {',
+      '    $value = Read-Host $prompt -AsSecureString',
+      "    try { return [pscredential]::new('fumi', $value).GetNetworkCredential().Password }",
+      '    finally { $value.Dispose() }',
+      '  }',
+    );
+  lines.push('  try {');
   if (temporary) {
     lines.push(
       "    $fumiTemp = Join-Path ([System.IO.Path]::GetTempPath()) ('fumi-' + [guid]::NewGuid().ToString('N'))",
@@ -144,10 +191,34 @@ export function createDecryptionCommand({
       '    Set-Acl -LiteralPath $fumiTemp -AclObject $fumiAcl',
     );
   }
-  if (temporaryKey) {
+  const readPowerShell = (prompt, variable, expected) =>
     lines.push(
-      `    $null = Read-Host ${quote(keyPrompt)}`,
-      '    $fumiKey = Get-Clipboard -Raw -ErrorAction Stop',
+      '    do {',
+      `      $fumiPaste = Read-FumiLine ${quote(prompt)}`,
+      '      if ([string]::IsNullOrEmpty($fumiPaste)) {',
+      `        ${variable} = Get-Clipboard -Raw -ErrorAction Stop`,
+      '      } else {',
+      `        ${variable} = $fumiPaste`,
+      "        if ($fumiPaste -match '^-----BEGIN .+-----$') {",
+      "          $fumiEnd = $fumiPaste.Replace('BEGIN ', 'END ')",
+      '          do {',
+      "            $fumiLine = Read-FumiLine ''",
+      `            ${variable} += "\u0060n" + $fumiLine`,
+      '          } while ($fumiLine -ne $fumiEnd)',
+      '        }',
+      '      }',
+      `      if (${variable} -notmatch ${quote(expected)}) { Write-Warning '入力する内容を確認して、もう一度お試しください。' }`,
+      `    } while (${variable} -notmatch ${quote(expected)})`,
+    );
+  if (temporaryKey) {
+    readPowerShell(
+      keyPrompt,
+      '$fumiKey',
+      format === 'pgp'
+        ? '^-----BEGIN PGP PRIVATE KEY BLOCK-----'
+        : '^-----BEGIN (OPENSSH |RSA |EC |ENCRYPTED )?PRIVATE KEY-----|^AGE-SECRET-KEY-1',
+    );
+    lines.push(
       "    $fumiIdentity = Join-Path $fumiTemp 'identity'",
       '    [System.IO.File]::WriteAllText($fumiIdentity, $fumiKey, [System.Text.UTF8Encoding]::new($false))',
     );
@@ -159,11 +230,12 @@ export function createDecryptionCommand({
     );
   }
   if (inputSource === 'clipboard') {
-    lines.push(
-      `    $null = Read-Host ${quote(cipherPrompt)}`,
-      '    $fumiCipher = Get-Clipboard -Raw -ErrorAction Stop',
-      `    $fumiCipher | ${decrypt}`,
+    readPowerShell(
+      cipherPrompt,
+      '$fumiCipher',
+      format === 'pgp' ? '^-----BEGIN PGP MESSAGE-----' : '^-----BEGIN AGE ENCRYPTED FILE-----',
     );
+    lines.push(`    $fumiCipher | ${decrypt}`);
   } else {
     lines.push(`    ${decrypt} ${input}`);
   }

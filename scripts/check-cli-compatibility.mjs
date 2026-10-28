@@ -303,6 +303,7 @@ fi
             format === 'pgp' ? ['keyring', 'file', 'clipboard'] : ['file', 'clipboard'];
           for (const keySource of keySources)
             for (const inputSource of ['file', 'clipboard']) {
+              if (!input.armored && inputSource === 'clipboard') continue;
               const clipboardTool = ['pbpaste', 'wl-paste', 'xclip'][
                 generatedSourceCommands.length % 3
               ];

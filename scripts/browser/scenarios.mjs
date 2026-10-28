@@ -102,7 +102,6 @@ async function clear(mode = 'encrypt') {
   await page.click('#clear-button');
   if (mode === 'decrypt') {
     await page.click('#decrypt-web');
-    await page.click('#secret-paste summary');
   }
 }
 async function advanced() {
@@ -119,8 +118,7 @@ async function encrypt(text = original, recipient = 'receiver') {
 async function decrypt(cipher, privateKey = secret, password = 'test-recipient-pass') {
   await clear('decrypt');
   await page.fill('#decrypt-text', cipher);
-  if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
-    await page.click('#secret-paste summary');
+
   await page.fill('#secret-text', privateKey);
   await page.waitForSelector('#passphrase', { state: 'visible' });
   await page.fill('#passphrase', password);
@@ -377,8 +375,7 @@ assert.match(
 );
 await clear('decrypt');
 await page.fill('#decrypt-text', await readFile(base + 'legacy-native.asc', 'utf8'));
-if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
-  await page.click('#secret-paste summary');
+
 await page.fill('#secret-text', secret);
 await page.waitForSelector('#passphrase', { state: 'visible' });
 await page.fill('#passphrase', 'test-recipient-pass');
@@ -411,8 +408,7 @@ await page.evaluate(() => {
 for (const name of ['tampered.asc', 'unsupported-native.asc']) {
   await clear('decrypt');
   await page.fill('#decrypt-text', await readFile(base + name, 'utf8'));
-  if (!(await page.evaluate(() => document.getElementById('secret-paste').open)))
-    await page.click('#secret-paste summary');
+
   await page.fill('#secret-text', secret);
   await page.waitForSelector('#passphrase', { state: 'visible' });
   await page.fill('#passphrase', 'test-recipient-pass');

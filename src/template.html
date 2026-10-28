@@ -312,29 +312,28 @@
                 <div id="web-decryption" hidden>
                   <section class="input-group" data-drop="secret">
                     <div class="field-toolbar">
-                      <label for="secret-text">秘密鍵</label
-                      ><label class="file-button" for="secret-file"
-                        ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
-                        >ファイルを選ぶ<input
-                          id="secret-file"
-                          type="file"
-                          aria-label="秘密鍵のファイルを選ぶ"
-                      /></label>
+                      <label for="secret-text">秘密鍵</label>
+                      <div class="field-input-actions">
+                        <button id="secret-paste-button" type="button" class="quiet-button">
+                          貼り付け
+                        </button>
+                        <label class="file-button" for="secret-file"
+                          ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
+                          >ファイル<input
+                            id="secret-file"
+                            type="file"
+                            aria-label="秘密鍵のファイルを選ぶ"
+                        /></label>
+                      </div>
                     </div>
                     <div id="secret-text-pane">
-                      <details id="secret-paste">
-                        <summary id="secret-paste-label">秘密鍵を貼り付ける</summary>
-                        <button id="secret-paste-button" type="button" class="quiet-button">
-                          クリップボードから貼り付け
-                        </button>
-                        <textarea
-                          id="secret-text"
-                          placeholder="秘密鍵を貼り付け"
-                          spellcheck="false"
-                          autocapitalize="none"
-                          aria-describedby="secret-error"
-                        ></textarea>
-                      </details>
+                      <textarea
+                        id="secret-text"
+                        placeholder="秘密鍵を貼り付け"
+                        spellcheck="false"
+                        autocapitalize="none"
+                        aria-describedby="secret-error"
+                      ></textarea>
                     </div>
                     <div id="secret-file-pane" class="file-chip" hidden>
                       <svg class="icon" aria-hidden="true"><use href="#file" /></svg

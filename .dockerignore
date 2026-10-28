@@ -1,0 +1,11 @@
+.git
+.env*
+.vercel
+node_modules
+.next
+.generated
+public/assets
+index.html
+test-results
+logs
+*.log

@@ -104,9 +104,6 @@ function updateForm() {
   $('recipient-status').hidden = manualOpen;
   $('password-box').hidden = !passwordNeeded;
   $('web-key-tips').hidden = passwordNeeded;
-  $('secret-paste-label').textContent = hasValue('secret')
-    ? '入力した秘密鍵を編集'
-    : '秘密鍵を貼り付ける';
   $('decrypt-content').hidden = !decryptMethod;
   $('web-decryption').hidden = decryptMethod !== 'web';
   $('command-decryption').hidden = decryptMethod !== 'command';
@@ -294,7 +291,6 @@ async function withJob(label, action, errorId = 'operation-error', automatic = f
       if (mode === 'decrypt') decryptChecked = true;
       if (mode === 'decrypt' && error.code === 'PASSPHRASE_REQUIRED') {
         passwordNeeded = true;
-        $('secret-paste').open = false;
         promptPassword = true;
         announce('秘密鍵のパスワードを入力してください。');
       } else {
@@ -548,7 +544,6 @@ for (const kind of ['decrypt', 'secret'])
       drafts[kind].kind = 'text';
       drafts[kind].file = null;
       $(kind + '-text').value = text;
-      if (kind === 'secret') $('secret-paste').open = true;
       if (kind === 'decrypt') resetCipherSource();
       resetDecryptCheck();
       invalidate('decrypt');
@@ -556,7 +551,6 @@ for (const kind of ['decrypt', 'secret'])
       scheduleDecrypt();
     } catch {
       if (version !== pasteVersion || mode !== 'decrypt' || method !== decryptMethod) return;
-      if (kind === 'secret') $('secret-paste').open = true;
       errorAt(
         kind + '-error',
         '貼り付けできませんでした。入力欄に直接貼り付けてください。',
@@ -812,7 +806,6 @@ $('clear-button').addEventListener('click', () => {
   recipientPreview.reset();
   manualOpen = false;
   decryptMethod = null;
-  $('secret-paste').open = false;
   $('web-key-tips').open = false;
   $('command-tips').open = false;
   resetCipherSource();
