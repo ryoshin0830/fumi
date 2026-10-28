@@ -25,17 +25,6 @@ const finished = () =>
   );
 // An absent operation must remain absent beyond the application's 600 ms debounce.
 const settled = () => page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 800)));
-async function editCipher() {
-  if (await visible('command-edit-cipher')) await page.click('#command-edit-cipher');
-}
-async function saveCipher(filename, contents, target = filename) {
-  const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-  await page.click('#command-save-button');
-  const download = await downloadPromise;
-  assert.equal(download.suggestedFilename(), filename);
-  await download.saveAs(base + target);
-  assert.deepEqual(await readFile(base + target), Buffer.from(contents));
-}
 await page.goto(__FUMI_URL__);
 await page.click('#manual-key-button');
 await page.fill('#encrypt-text', plaintext);
@@ -103,289 +92,62 @@ await page.evaluate(() => {
     },
   });
 });
-// Exercise the native radio group's keyboard behavior with a retained secret draft.
+// The command method is available before any ciphertext is entered in the page.
 await page.focus('#decrypt-web');
 await page.press('#decrypt-web', 'ArrowRight');
 await page.waitForFunction(() => document.getElementById('decrypt-command').checked);
+assert.equal(await visible('decrypt-text'), false);
 assert.equal(await visible('secret-text'), false);
-assert.equal(await visible('passphrase'), false);
-assert.equal(await page.evaluate(() => document.getElementById('command-key-path').value), '');
+assert.equal(await visible('terminal-command'), true);
+assert.equal(await visible('command-copy-button'), true);
 assert.equal(
   await page.evaluate(
     () =>
-      document.getElementById('command-shell').value ===
-      (/Win/i.test(navigator.platform) ? 'powershell' : 'posix'),
+      document
+        .getElementById('command-decryption')
+        .querySelectorAll('input, textarea, select, details').length,
   ),
-  true,
+  0,
 );
-await page.fill('#decrypt-text', pgp);
-await page.waitForFunction(() => !document.getElementById('command-source-options').hidden);
-assert.equal(await value('command-input-source'), 'file');
-assert.equal(await value('command-key-source'), '');
-assert.equal(await visible('command-key-source'), false, 'save precedes key configuration');
-assert.equal(await visible('command-cipher-path'), false);
-assert.equal(await visible('command-save-button'), true);
-assert.equal(await visible('command-copy-button'), false);
-assert.equal(await visible('command-output'), false);
-assert.equal(await command(), '');
-assert.equal(await visible('command-key-path'), false);
-await page.press('#decrypt-text', 'Control+Enter');
-await page.press('#decrypt-text', 'Meta+Enter');
-// Exercise the form submit guard as well as the keyboard shortcut guards.
+assert.equal(await page.evaluate(() => !!document.getElementById('command-tips')), false);
+assert.equal((await command()).includes(protectedKey), false);
+assert.match(await command(), /暗号文を貼り付け/);
+assert.match(await command(), /秘密鍵を貼り付け/);
+await page.press('#terminal-command', 'Control+Enter');
+await page.press('#terminal-command', 'Meta+Enter');
 await page.evaluate(() => document.getElementById('main-form').requestSubmit());
 await settled();
-assert.equal(
-  await page.evaluate(() => window.__methodDecryptCalls),
-  0,
-  'command mode cannot submit a retained secret to a worker',
-);
-assert.equal(await page.evaluate(() => document.getElementById('result-panel').hidden), true);
-await saveCipher('message.txt.asc', pgp, 'methods-command-pasted.asc');
-assert.equal(await visible('command-cipher-summary'), true);
-assert.equal(await visible('decrypt-text'), false);
-assert.equal(await visible('command-key-source'), true);
-assert.equal(await value('command-key-source'), '', 'saving cannot choose a private key');
-assert.equal(await value('command-cipher-path'), 'message.txt.asc');
-assert.equal(await visible('command-save-button'), true, 'saved text remains downloadable');
-assert.equal(await command(), '');
-assert.equal(
-  await page.evaluate(() => document.getElementById('command-copy-button').disabled),
-  true,
-);
-await page.selectOption('#command-key-source', 'keyring');
-await page.waitForFunction(() =>
-  document
-    .getElementById('terminal-command')
-    .textContent.includes('gpg --output restored --decrypt'),
-);
-assert.match(await command(), /GPG_TTY=\$\(tty\)/);
-assert.match(await command(), /gpg --output restored --decrypt '\.\/message.txt.asc'/);
-await page.click('#command-tips > summary');
-await page.click('#command-cipher-path-box summary');
-await page.fill('#command-cipher-path', "~/Downloads/received's.asc");
-assert.match(await command(), /received'\\''s\.asc/);
-await page.fill('#command-cipher-path', 'message.txt.asc');
-await page.click('#command-cipher-path-box summary');
-await page.click('#command-tips > summary');
+assert.equal(await page.evaluate(() => window.__methodDecryptCalls), 0);
 await page.click('#command-copy-button');
 await page.waitForFunction(
   () => document.getElementById('command-copy-label').textContent === 'コピーしました',
 );
 assert.deepEqual(await page.evaluate(() => window.__methodClipboard), [await command()]);
-// Editing invalidates the saved bytes even when the format stays the same.
-await editCipher();
-await page.fill('#decrypt-text', pgp + '\n');
-assert.equal(await visible('command-output'), false);
-assert.equal(await visible('command-copy-button'), false);
-assert.equal(await visible('command-key-source'), false);
-assert.equal(await command(), '');
-await saveCipher('message.txt.asc', pgp + '\n', 'methods-command-pasted-edited.asc');
-assert.equal(await visible('command-cipher-summary'), true);
-assert.equal(await visible('command-output'), true);
-await editCipher();
-await page.fill('#decrypt-text', age);
-assert.equal(await value('command-key-source'), '', 'age cannot retain a GPG keyring selection');
-assert.equal(await visible('command-output'), false);
-assert.equal(await visible('command-key-path'), false);
-await page.selectOption('#command-input-source', 'clipboard');
-assert.equal(await visible('command-cipher-summary'), true);
-assert.equal(await visible('command-key-source'), true);
-await page.selectOption('#command-input-source', 'file');
-assert.equal(await visible('command-cipher-summary'), false);
-assert.equal(
-  await visible('command-copy-button'),
-  false,
-  'clipboard choice cannot mark text as saved',
-);
-assert.equal(await visible('command-key-source'), false);
-await saveCipher('message.txt.age', age, 'methods-command-pasted.age');
-assert.equal(
-  await page.evaluate(() => document.getElementById('command-keyring-option').disabled),
-  true,
-);
-await page.selectOption('#command-key-source', 'file');
-assert.equal(await value('command-key-path'), '');
-assert.equal(await command(), '', 'an empty private-key path cannot produce a command');
-// Choosing a command identity uses File.name without reading private-key bytes.
-await page.evaluate(() => {
-  window.__methodKeyReads = 0;
-  window.__methodRestoreKeyReads = [];
-  for (const [prototype, methods] of [
-    [File.prototype, ['arrayBuffer', 'text', 'stream']],
-    [
-      FileReader.prototype,
-      ['readAsArrayBuffer', 'readAsText', 'readAsBinaryString', 'readAsDataURL'],
-    ],
-  ]) {
-    for (const name of methods) {
-      const original = prototype[name];
-      window.__methodRestoreKeyReads.push(() => {
-        prototype[name] = original;
-      });
-      prototype[name] = function () {
-        window.__methodKeyReads++;
-        throw new Error('Command mode must never read a private-key file');
-      };
-    }
-  }
-});
-await page.setInputFiles('#command-key-file', [base + 'signer-ssh']);
-await settled();
-assert.equal(await value('command-key-path'), 'signer-ssh');
-assert.equal(await page.evaluate(() => window.__methodKeyReads), 0);
-assert.equal(await page.evaluate(() => window.__methodDecryptCalls), 0);
-assert.equal(await value('secret-text'), protectedKey);
-await page.evaluate(() => window.__methodRestoreKeyReads.forEach((restore) => restore()));
-await page.fill('#command-key-path', protectedKey);
-assert.equal(await command(), '', 'key contents must never be embedded as a path');
-assert.equal(await visible('command-error'), true);
-assert.equal(
-  await page.evaluate(() => document.getElementById('command-error').textContent.includes('BEGIN')),
-  false,
-  'path errors do not repeat private-key contents',
-);
-assert.equal(
-  await page.evaluate(() => document.getElementById('command-copy-label').textContent),
-  'コマンドをコピー',
-);
-await page.click('#command-tips > summary');
-await page.selectOption('#command-shell', 'posix');
-const identity = "~/.ssh/key with 'quotes'";
-await page.fill('#command-key-path', identity);
-assert.equal(
-  await command(),
-  "age --decrypt --identity \"$HOME\"/'.ssh/key with '\\''quotes'\\''' --output restored './message.txt.age'",
-);
-await page.fill('#command-key-path', "C:\\Users\\Test Person\\key's");
-await page.waitForFunction(() => !document.getElementById('command-error').hidden);
-assert.match(
-  await page.evaluate(() => document.getElementById('command-error').textContent),
-  /PowerShell/,
-);
-assert.equal(
-  await page.evaluate(() => document.getElementById('command-copy-button').disabled),
-  true,
-);
-assert.equal(await command(), '');
-await page.selectOption('#command-shell', 'powershell');
-assert.equal(
-  await command(),
-  "age --decrypt --identity 'C:\\Users\\Test Person\\key''s' --output restored './message.txt.age'",
-);
-await page.press('#command-key-path', 'Enter');
-await settled();
-assert.equal(await page.evaluate(() => window.__methodDecryptCalls), 0);
 await page.evaluate(() => {
   window.__methodClipboardFails = true;
 });
 await page.click('#command-copy-button');
 await page.waitForFunction(() => !document.getElementById('command-error').hidden);
-assert.equal(
-  await page.evaluate(() => getSelection().toString()),
-  await command(),
-  'failed clipboard writes select only the displayed command',
-);
-assert.equal(await page.evaluate(() => document.activeElement.id), 'terminal-command');
+assert.equal(await page.evaluate(() => getSelection().toString()), await command());
 await page.evaluate(() => {
   window.__methodClipboardFails = false;
 });
-await page.fill('#command-key-path', '~/.ssh/test-key');
-await page.selectOption('#command-shell', 'posix');
-// Clipboard sources generate terminal prompts; selecting them never reads the browser clipboard.
-await page.selectOption('#command-input-source', 'clipboard');
-assert.equal(await visible('command-cipher-summary'), true);
-assert.equal(await visible('command-save-button'), false);
-assert.equal(await visible('command-cipher-path'), false);
-await page.selectOption('#command-clipboard-tool', '');
-assert.equal(await command(), '');
-await page.selectOption('#command-clipboard-tool', 'pbpaste');
-assert.equal(await value('command-shell'), 'posix');
-assert.match(await command(), /暗号文をコピーして Enter/);
-assert.match(await command(), /IFS= read -r fumi_enter/);
-assert.match(await command(), /pbpaste > /);
-await page.selectOption('#command-key-source', 'clipboard');
-assert.equal(await visible('command-key-path'), false);
-const bothClipboard = await command();
-assert.ok(
-  bothClipboard.indexOf('秘密鍵をコピーして Enter') <
-    bothClipboard.indexOf('暗号文をコピーして Enter'),
-);
-assert.equal((bothClipboard.match(/pbpaste > /g) || []).length, 2);
-assert.equal((bothClipboard.match(/IFS= read -r fumi_enter/g) || []).length, 2);
-assert.equal(bothClipboard.includes(protectedKey), false);
-assert.equal(bothClipboard.includes(age), false);
-await page.selectOption('#command-clipboard-tool', 'powershell');
-assert.equal(await value('command-shell'), 'powershell');
-assert.equal((await command()).includes('Get-Clipboard -Raw'), true);
-await page.selectOption('#command-clipboard-tool', 'wl-paste');
-assert.equal(await value('command-shell'), 'posix');
-assert.match(await command(), /wl-paste --no-newline/);
-await page.selectOption('#command-clipboard-tool', 'xclip');
-assert.match(await command(), /xclip -selection clipboard -out/);
-await page.selectOption('#command-shell', 'powershell');
-assert.equal(await value('command-clipboard-tool'), 'powershell');
-await page.selectOption('#command-shell', 'posix');
-assert.notEqual(await value('command-clipboard-tool'), 'powershell');
-assert.equal(await page.evaluate(() => window.__methodClipboardReads), 0);
-await page.selectOption('#command-key-source', 'file');
-await page.fill('#command-key-path', '~/.ssh/test-key');
-assert.equal(await value('command-input-source'), 'clipboard');
-await editCipher();
-await page.setInputFiles('#decrypt-file', [base + 'signed.age']);
-await idle();
-assert.equal(
-  await value('command-input-source'),
-  'file',
-  'binary ciphertext requires a file source',
-);
-assert.equal(
-  await page.evaluate(() => document.getElementById('command-cipher-clipboard-option').disabled),
-  true,
-  'binary age data cannot use text clipboard commands',
-);
-assert.equal(await visible('command-cipher-summary'), true);
-assert.equal(await value('command-cipher-path'), 'signed.age');
-assert.equal(await visible('command-save-button'), false);
-assert.match(await command(), /'\.\/signed\.age'$/);
-await editCipher();
-await page.click('#decrypt-file-remove');
-await page.fill('#decrypt-text', pgp);
 await page.click('#decrypt-web');
+assert.equal(await value('secret-text'), protectedKey);
+await page.fill('#decrypt-text', pgp);
 await page.waitForFunction(() => document.getElementById('passphrase').checkVisibility());
 await idle();
-assert.equal(
-  await page.evaluate(() => document.getElementById('secret-text').value),
-  protectedKey,
-  'secret draft survives method changes',
-);
-assert.equal(
-  await page.evaluate(() => document.getElementById('decrypt-text').value),
-  pgp,
-  'ciphertext draft survives method changes',
-);
+assert.equal(await value('secret-text'), protectedKey);
+assert.equal(await value('decrypt-text'), pgp);
 await page.fill('#passphrase', 'test-recipient-pass');
 const callsBeforeSwitch = await page.evaluate(() => window.__methodDecryptCalls);
 await page.click('#decrypt-command');
 await settled();
-assert.equal(
-  await page.evaluate(() => window.__methodDecryptCalls),
-  callsBeforeSwitch,
-  'switching with a password cannot start another decrypt',
-);
-assert.equal(
-  await page.evaluate(() => document.getElementById('passphrase').value),
-  '',
-  'method changes clear the password',
-);
+assert.equal(await page.evaluate(() => window.__methodDecryptCalls), callsBeforeSwitch);
+assert.equal(await value('passphrase'), '');
 await page.click('#clear-button');
-assert.deepEqual(
-  await page.evaluate(() =>
-    ['decrypt-web', 'decrypt-command'].map((id) => document.getElementById(id).checked),
-  ),
-  [false, false],
-);
 assert.equal(await visible('decrypt-content'), false);
-assert.equal(await page.evaluate(() => document.getElementById('secret-text').value), '');
+assert.equal(await value('secret-text'), '');
 // Clipboard permission denial leaves a focused manual fallback for both fields.
 await page.click('#decrypt-web');
 await page.evaluate(() => {
@@ -528,5 +290,5 @@ assert.equal(await visible('passphrase'), false);
 await page.click('#edit-result-button');
 await page.click('#clear-button');
 console.log(
-  'PASS: explicit input sources, saved-byte invalidation, file names without private-key reads, prompted OS clipboard commands, keyboard and submit isolation, safe paste/copy fallback, rejected key paths, draft retention, cancelled key reads, and real web round trip.',
+  'PASS: visible universal command and Copy only, no command-mode crypto, copy fallback, browser paste/path guidance, draft retention, cancelled reads and real web decryption.',
 );

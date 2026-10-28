@@ -1180,122 +1180,32 @@ dialog details {
 #decrypt-status {
   margin-top: 6px;
 }
-.command-environment {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin: 8px 0;
-}
-.command-environment label,
-#command-key-path-box > label {
-  font-size: 13px;
-}
-.command-environment select {
-  width: auto;
-  max-width: 65%;
-  min-height: 44px;
-  padding: 6px 10px;
-  font-size: 13px;
-}
-#command-key-path-box input {
-  min-height: 44px;
-  padding-block: 8px;
-}
 #command-copy-button {
   margin-right: auto;
 }
-#command-output {
-  margin-top: 8px;
-}
-#command-output > .field-hint {
-  font-size: 12px;
-  line-height: 1.5;
+.tool-shell:has(#decrypt-command:checked) #decrypt-panel,
+.tool-shell:has(#decrypt-command:checked) #decrypt-content,
+#command-decryption {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 #terminal-command {
-  font-size: 13px;
-  line-height: 1.55;
-  padding: 10px;
-  max-height: 140px;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 12px;
   overflow: auto;
+  font-size: 12px;
+  line-height: 1.6;
 }
 .field-input-actions {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-.command-option-label {
-  display: block;
-  margin: 6px 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-}
-#command-source-options select,
-#command-source-options input[type='text'] {
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 10px;
-  font-size: 14px;
-}
-#command-source-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.command-source-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 8px 0;
-}
-.command-source-row > label {
-  flex-shrink: 0;
-  margin: 0;
-}
-.command-source-row > select {
-  flex: 1;
-  min-width: 0;
-}
-#command-key-path-box {
-  display: flex;
-  gap: 8px;
-}
-#command-key-path-box .field-toolbar {
-  order: 1;
-  flex-shrink: 0;
-  margin: 0;
-}
-#command-key-path-box .field-toolbar > label:first-child {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-#command-key-path-box input[type='text'] {
-  min-width: 0;
-  flex: 1;
-}
-#command-cipher-summary {
-  margin-bottom: 6px;
-  min-height: 44px;
-  padding: 0 10px;
-}
-#command-cipher-path-box {
-  margin-top: 6px;
-  font-size: 12px;
-}
-#command-output > summary {
-  min-height: 44px;
-  font-size: 13px;
-}
-@media (max-width: 600px), (max-height: 760px) {
-  #terminal-command {
-    max-height: 88px;
-  }
-}
-#command-key-path-box {
-  margin-top: 8px;
 }
 .decryption-tips code {
   overflow-wrap: anywhere;

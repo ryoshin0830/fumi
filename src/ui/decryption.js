@@ -1,260 +1,137 @@
-import { detectFormat } from '../files.js';
+const posix = String.raw`(
+  umask 077
+  fumi_tmp=$(mktemp -d /tmp/fumi-XXXXXXXX) || exit 1
+  fumi_tty=
+  fumi_cleanup() {
+    fumi_status=$?
+    trap - 0 HUP INT TERM
+    if [ -n "$fumi_tty" ]; then stty "$fumi_tty" 2>/dev/null || :; fi
+    if command -v gpgconf >/dev/null 2>&1; then gpgconf --homedir "$fumi_tmp" --kill gpg-agent >/dev/null 2>&1 || :; fi
+    rm -rf -- "$fumi_tmp"
+    exit "$fumi_status"
+  }
+  trap fumi_cleanup 0
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  fumi_read() {
+    while :; do
+      if [ -t 0 ]; then fumi_tty=$(stty -g) || exit 1; stty -echo || exit 1; fi
+      printf '%s\n' "$1" >&2
+      fumi_line=
+      IFS= read -r fumi_line || exit 1
+      printf '%s\n' "$fumi_line" > "$2"
+      case "$fumi_line" in
+        '-----BEGIN '*'-----')
+          fumi_end=$(printf '%s' "$fumi_line" | sed 's/BEGIN /END /')
+          while IFS= read -r fumi_line; do
+            printf '%s\n' "$fumi_line" >> "$2"
+            [ "$fumi_line" != "$fumi_end" ] || break
+          done
+          [ "$fumi_line" = "$fumi_end" ] || exit 1 ;;
+      esac
+      if [ -n "$fumi_tty" ]; then stty "$fumi_tty"; fumi_tty=; fi
+      grep -aEq "$3" "$2" && return 0
+      printf '%s\n' '内容を確認して、もう一度貼り付けてください。' >&2
+    done
+  }
+  fumi_read '暗号文を貼り付けてください。' "$fumi_tmp/cipher" '^-----BEGIN (PGP MESSAGE|AGE ENCRYPTED FILE)-----'
+  if grep -aq '^-----BEGIN PGP MESSAGE-----' "$fumi_tmp/cipher"; then
+    command -v gpg >/dev/null 2>&1 || { printf '%s\n' 'gpg が必要です。' >&2; exit 1; }
+    fumi_read '秘密鍵を貼り付けてください。' "$fumi_tmp/key" '^-----BEGIN PGP PRIVATE KEY BLOCK-----'
+    if [ -t 0 ]; then GPG_TTY=$(tty); export GPG_TTY; fi
+    gpg --no-options --homedir "$fumi_tmp" --quiet --batch --import "$fumi_tmp/key" || exit $?
+    gpg --no-options --homedir "$fumi_tmp" --quiet --output "$fumi_tmp/plaintext" --decrypt "$fumi_tmp/cipher" || exit $?
+  else
+    command -v age >/dev/null 2>&1 || { printf '%s\n' 'age が必要です。' >&2; exit 1; }
+    fumi_read '秘密鍵を貼り付けてください。' "$fumi_tmp/key" '^-----BEGIN (OPENSSH |RSA |EC |ENCRYPTED )?PRIVATE KEY-----|^AGE-SECRET-KEY-1'
+    age --decrypt --identity "$fumi_tmp/key" --output "$fumi_tmp/plaintext" "$fumi_tmp/cipher" || exit $?
+  fi
+  if iconv -f UTF-8 -t UTF-8 "$fumi_tmp/plaintext" >/dev/null 2>&1 &&
+     ! LC_ALL=C tr -d '\11\12\15' < "$fumi_tmp/plaintext" | LC_ALL=C grep -aEq "[[:cntrl:]]|$(printf '\302[\200-\237]')"; then
+    printf '\n復号した内容:\n' >&2
+    cat "$fumi_tmp/plaintext" || exit $?
+    printf '\n' >&2
+  else
+    fumi_output=$(mktemp ./restored-XXXXXXXX) || exit 1
+    cat "$fumi_tmp/plaintext" > "$fumi_output" || { rm -f -- "$fumi_output"; exit 1; }
+    printf 'ファイルに保存しました: %s\n' "$fumi_output"
+  fi
+)`;
 
-const control = /[\u0000-\u001f\u007f-\u009f]/;
-const windowsPath = /^(?:[a-z]:|\\\\|\/\/)/i;
-const clipboardCommands = {
-  pbpaste: 'pbpaste',
-  'wl-paste': 'wl-paste --no-newline',
-  xclip: 'xclip -selection clipboard -out',
-};
-const keyPrompt = '秘密鍵をコピーして Enter を押してください。直接貼り付けることもできます。';
-const cipherPrompt = '暗号文をコピーして Enter を押してください。直接貼り付けることもできます。';
-
-export function createDecryptionCommand({
-  data,
-  sourceName = '',
-  inputSource = 'file',
-  inputPath = '',
-  keySource = '',
-  identity = '',
-  shell = 'posix',
-  clipboardTool = '',
-}) {
-  if (!['posix', 'powershell'].includes(shell)) {
-    throw new Error('シェルは POSIX または PowerShell を選んでください。');
+const powershell = String.raw`& {
+  $ErrorActionPreference = 'Stop'
+  $fumiTemp = $null
+  function Read-FumiLine([string]$prompt) {
+    $value = Read-Host $prompt -AsSecureString
+    try { return [pscredential]::new('fumi', $value).GetNetworkCredential().Password }
+    finally { $value.Dispose() }
   }
-  const format = detectFormat(data);
-  if (!format || keySource === '') return null;
-  if (!['file', 'clipboard'].includes(inputSource)) {
-    throw new Error('暗号文の入力元を選んでください。');
+  function Read-FumiBlock([string]$prompt, [string]$expected) {
+    do {
+      $first = Read-FumiLine $prompt
+      $value = $first
+      if ($first -match '^-----BEGIN .+-----$') {
+        $end = $first.Replace('BEGIN ', 'END ')
+        do {
+          $line = Read-FumiLine ''
+          $value += [Environment]::NewLine + $line
+        } while ($line -ne $end)
+      }
+      if ($value -match $expected) { return $value }
+      Write-Warning '内容を確認して、もう一度貼り付けてください。'
+    } while ($true)
   }
-  if (
-    !['keyring', 'file', 'clipboard'].includes(keySource) ||
-    (format === 'ssh' && keySource === 'keyring')
-  ) {
-    throw new Error('秘密鍵の入力元を選んでください。');
-  }
-  const clipboard = inputSource === 'clipboard' || keySource === 'clipboard';
-  if (clipboard && shell === 'posix' && !Object.hasOwn(clipboardCommands, clipboardTool)) {
-    throw new Error('クリップボードのコマンドを選んでください。');
-  }
-  if (
-    keySource === 'file' &&
-    typeof identity === 'string' &&
-    /-----BEGIN (?:[A-Z0-9]+ )*(?:PRIVATE|PUBLIC) KEY(?: BLOCK)?-----|AGE-SECRET-KEY-1|^\s*(?:ssh-(?:rsa|ed25519)|ecdsa-sha2-\S+|sk-\S+@openssh\.com)\s+[A-Za-z0-9+/]{16,}={0,3}(?:\s|$)/i.test(
-      identity,
-    )
-  ) {
-    throw new Error(
-      '鍵の本文はパスとして使えません。秘密鍵ファイルのパスを入力するか、クリップボードを選んでください。',
-    );
-  }
-  const filename = sourceName || (format === 'pgp' ? 'message.txt.asc' : 'message.txt.age');
-  if (typeof filename !== 'string' || control.test(filename)) {
-    throw new Error('ファイル名に制御文字は使えません。');
-  }
-  const quote =
-    shell === 'posix'
-      ? (value) => "'" + value.replace(/'/g, "'\\''") + "'"
-      : (value) => "'" + value.replace(/['\u2018\u2019]/g, '$&$&') + "'";
-  function path(value, label, home = false) {
-    if (typeof value !== 'string' || !value.trim() || control.test(value)) {
-      throw new Error(`${label}のパスを、空欄や制御文字を含まない形で入力してください。`);
-    }
-    if (shell === 'posix' && windowsPath.test(value)) {
-      throw new Error('Windows のパスを使う場合は PowerShell を選んでください。');
-    }
-    if (home && value.startsWith('~/')) {
-      return shell === 'posix'
-        ? '"$HOME"/' + quote(value.slice(2))
-        : `(Join-Path $HOME ${quote(value.slice(2))})`;
-    }
-    const absolute = shell === 'posix' ? value.startsWith('/') : /^(?:[a-z]:|[/\\])/i.test(value);
-    return quote(absolute || /^\.\.?[/\\]/.test(value) ? value : './' + value);
-  }
-  // The source filename is kept verbatim; the editable execution path may differ.
-  const input =
-    inputSource === 'file' ? path(inputPath || filename, '暗号文', Boolean(inputPath)) : '';
-  const key = keySource === 'file' ? path(identity, '秘密鍵', true) : '';
-  if (shell === 'posix' && windowsPath.test(filename)) {
-    throw new Error('Windows のパスを使う場合は PowerShell を選んでください。');
-  }
-  const temporaryKey = keySource === 'clipboard';
-  const isolatedGpg = format === 'pgp' && keySource !== 'keyring';
-  const temporary =
-    isolatedGpg || temporaryKey || (shell === 'posix' && inputSource === 'clipboard');
-  const decrypt =
-    format === 'pgp'
-      ? `gpg${isolatedGpg ? (shell === 'posix' ? ' --no-options --homedir "$fumi_tmp"' : ' --no-options --homedir $fumiTemp') : ''} --output restored --decrypt`
-      : `age --decrypt --identity ${temporaryKey ? (shell === 'posix' ? '"$fumi_tmp/identity"' : '$fumiIdentity') : key} --output restored`;
-  if (!temporary && !clipboard && (format !== 'pgp' || shell !== 'posix'))
-    return { format, filename, command: `${decrypt} ${input}` };
-
-  if (shell === 'posix') {
-    const lines = ['('];
-    if (format === 'pgp') lines.push('  if [ -t 0 ]; then GPG_TTY=$(tty); export GPG_TTY; fi');
-    if (temporary) {
-      lines.push(
-        '  umask 077',
-        '  fumi_tmp=$(mktemp -d /tmp/fumi-XXXXXXXX) || exit 1',
-        '  fumi_cleanup() {',
-        '    fumi_status=$?',
-        '    trap - 0 HUP INT TERM',
-        ...(clipboard
-          ? ['    if [ -n "${fumi_tty:-}" ]; then stty "$fumi_tty" 2>/dev/null || :; fi']
-          : []),
-        ...(isolatedGpg
-          ? ['    gpgconf --homedir "$fumi_tmp" --kill gpg-agent >/dev/null 2>&1 || :']
-          : []),
-        '    rm -rf -- "$fumi_tmp"',
-        '    exit "$fumi_status"',
-        '  }',
-        '  trap fumi_cleanup 0',
-        "  trap 'exit 129' HUP",
-        "  trap 'exit 130' INT",
-        "  trap 'exit 143' TERM",
-      );
-    }
-    const readClipboard = (prompt, target, expected, label) =>
-      lines.push(
-        '  while :; do',
-        '    fumi_tty=',
-        '    if [ -t 0 ]; then fumi_tty=$(stty -g); stty -echo; fi',
-        `    printf '%s\\n' ${quote(prompt)} >&2`,
-        '    IFS= read -r fumi_enter || exit 1',
-        '    if [ -z "$fumi_enter" ]; then',
-        `      ${clipboardCommands[clipboardTool]} > "${target}" || exit 1`,
-        '    else',
-        `      printf '%s\\n' "$fumi_enter" > "${target}"`,
-        '      case "$fumi_enter" in',
-        "        '-----BEGIN '*'-----')",
-        "          fumi_end=$(printf '%s' \"$fumi_enter\" | sed 's/BEGIN /END /')",
-        '          while IFS= read -r fumi_line; do',
-        `            printf '%s\\n' "$fumi_line" >> "${target}"`,
-        '            [ "$fumi_line" != "$fumi_end" ] || break',
-        '          done',
-        '          [ "${fumi_line:-}" = "$fumi_end" ] || exit 1 ;;',
-        '      esac',
-        '    fi',
-        '    if [ -n "$fumi_tty" ]; then stty "$fumi_tty"; fumi_tty=; fi',
-        `    grep -aEq ${quote(expected)} "${target}" && break`,
-        `    printf '%s\\n' ${quote(label + 'が見つかりません。入力する内容を確認して、もう一度お試しください。')} >&2`,
-        '  done',
-      );
-    if (temporaryKey)
-      readClipboard(
-        keyPrompt,
-        '$fumi_tmp/identity',
-        format === 'pgp'
-          ? '^-----BEGIN PGP PRIVATE KEY BLOCK-----'
-          : '^-----BEGIN (OPENSSH |RSA |EC |ENCRYPTED )?PRIVATE KEY-----|^AGE-SECRET-KEY-1',
-        '秘密鍵',
-      );
-    if (isolatedGpg) {
-      lines.push(
-        `  gpg --no-options --homedir "$fumi_tmp" --batch --import ${temporaryKey ? '"$fumi_tmp/identity"' : key} || exit $?`,
-      );
-    }
-    if (inputSource === 'clipboard') {
-      // Staging preserves bytes and catches clipboard failure before native decryption.
-      readClipboard(
-        cipherPrompt,
-        '$fumi_tmp/ciphertext',
-        format === 'pgp' ? '^-----BEGIN PGP MESSAGE-----' : '^-----BEGIN AGE ENCRYPTED FILE-----',
-        '暗号文',
-      );
-      lines.push(`  ${decrypt} < "$fumi_tmp/ciphertext"`);
+  try {
+    $fumiTemp = Join-Path ([IO.Path]::GetTempPath()) ('fumi-' + [guid]::NewGuid().ToString('N'))
+    $null = New-Item -ItemType Directory -Path $fumiTemp
+    $acl = Get-Acl -LiteralPath $fumiTemp
+    $acl.SetAccessRuleProtection($true, $false)
+    $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.WindowsIdentity]::GetCurrent().User, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow'))
+    Set-Acl -LiteralPath $fumiTemp -AclObject $acl
+    $cipher = Read-FumiBlock '暗号文を貼り付けてください。' '^-----BEGIN (PGP MESSAGE|AGE ENCRYPTED FILE)-----'
+    $pgp = $cipher.StartsWith('-----BEGIN PGP MESSAGE-----')
+    $tool = if ($pgp) { 'gpg' } else { 'age' }
+    if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool が必要です。" }
+    $expected = if ($pgp) { '^-----BEGIN PGP PRIVATE KEY BLOCK-----' } else { '^-----BEGIN (OPENSSH |RSA |EC |ENCRYPTED )?PRIVATE KEY-----|^AGE-SECRET-KEY-1' }
+    $key = Read-FumiBlock '秘密鍵を貼り付けてください。' $expected
+    $cipherPath = Join-Path $fumiTemp 'cipher'
+    $keyPath = Join-Path $fumiTemp 'key'
+    $plainPath = Join-Path $fumiTemp 'plaintext'
+    [IO.File]::WriteAllText($cipherPath, $cipher, [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($keyPath, $key, [Text.UTF8Encoding]::new($false))
+    if ($pgp) {
+      gpg --no-options --homedir $fumiTemp --quiet --batch --import $keyPath
+      if ($LASTEXITCODE -ne 0) { throw '秘密鍵を読み込めませんでした。' }
+      gpg --no-options --homedir $fumiTemp --quiet --output $plainPath --decrypt $cipherPath
     } else {
-      lines.push(`  ${decrypt} ${input}`);
+      age --decrypt --identity $keyPath --output $plainPath $cipherPath
     }
-    lines.push(')');
-    return { format, filename, command: lines.join('\n') };
+    if ($LASTEXITCODE -ne 0) { throw '復号できませんでした。' }
+    $bytes = [IO.File]::ReadAllBytes($plainPath)
+    $text = $null
+    try { $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes) }
+    catch [Text.DecoderFallbackException] {}
+    if ($null -ne $text -and $text -notmatch '[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]') {
+      [Console]::Error.WriteLine('復号した内容:')
+      [Console]::Out.Write($text)
+      [Console]::Error.WriteLine()
+    } else {
+      $destination = Join-Path (Get-Location).Path ('restored-' + [guid]::NewGuid().ToString('N'))
+      $file = [IO.File]::Open($destination, 'CreateNew', 'Write')
+      try { $file.Write($bytes, 0, $bytes.Length) } finally { $file.Dispose() }
+      Write-Host "ファイルに保存しました: $destination"
+    }
+  } finally {
+    if ($null -ne $fumiTemp) {
+      try { if (Get-Command gpgconf -ErrorAction SilentlyContinue) { gpgconf --homedir $fumiTemp --kill gpg-agent 2>$null } }
+      finally { Remove-Item -LiteralPath $fumiTemp -Recurse -Force }
+    }
   }
+}`;
 
-  const lines = ['& {', "  $ErrorActionPreference = 'Stop'", '  $fumiTemp = $null'];
-  if (clipboard)
-    lines.push(
-      '  function Read-FumiLine([string]$prompt) {',
-      '    $value = Read-Host $prompt -AsSecureString',
-      "    try { return [pscredential]::new('fumi', $value).GetNetworkCredential().Password }",
-      '    finally { $value.Dispose() }',
-      '  }',
-    );
-  lines.push('  try {');
-  if (temporary) {
-    lines.push(
-      "    $fumiTemp = Join-Path ([System.IO.Path]::GetTempPath()) ('fumi-' + [guid]::NewGuid().ToString('N'))",
-      '    $null = New-Item -ItemType Directory -Path $fumiTemp',
-      '    $fumiAcl = Get-Acl -LiteralPath $fumiTemp',
-      '    $fumiAcl.SetAccessRuleProtection($true, $false)',
-      "    $fumiAcl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new([System.Security.Principal.WindowsIdentity]::GetCurrent().User, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow'))",
-      '    Set-Acl -LiteralPath $fumiTemp -AclObject $fumiAcl',
-    );
-  }
-  const readPowerShell = (prompt, variable, expected) =>
-    lines.push(
-      '    do {',
-      `      $fumiPaste = Read-FumiLine ${quote(prompt)}`,
-      '      if ([string]::IsNullOrEmpty($fumiPaste)) {',
-      `        ${variable} = Get-Clipboard -Raw -ErrorAction Stop`,
-      '      } else {',
-      `        ${variable} = $fumiPaste`,
-      "        if ($fumiPaste -match '^-----BEGIN .+-----$') {",
-      "          $fumiEnd = $fumiPaste.Replace('BEGIN ', 'END ')",
-      '          do {',
-      "            $fumiLine = Read-FumiLine ''",
-      `            ${variable} += "\u0060n" + $fumiLine`,
-      '          } while ($fumiLine -ne $fumiEnd)',
-      '        }',
-      '      }',
-      `      if (${variable} -notmatch ${quote(expected)}) { Write-Warning '入力する内容を確認して、もう一度お試しください。' }`,
-      `    } while (${variable} -notmatch ${quote(expected)})`,
-    );
-  if (temporaryKey) {
-    readPowerShell(
-      keyPrompt,
-      '$fumiKey',
-      format === 'pgp'
-        ? '^-----BEGIN PGP PRIVATE KEY BLOCK-----'
-        : '^-----BEGIN (OPENSSH |RSA |EC |ENCRYPTED )?PRIVATE KEY-----|^AGE-SECRET-KEY-1',
-    );
-    lines.push(
-      "    $fumiIdentity = Join-Path $fumiTemp 'identity'",
-      '    [System.IO.File]::WriteAllText($fumiIdentity, $fumiKey, [System.Text.UTF8Encoding]::new($false))',
-    );
-  }
-  if (isolatedGpg) {
-    lines.push(
-      `    gpg --no-options --homedir $fumiTemp --batch --import ${temporaryKey ? '$fumiIdentity' : key}`,
-      "    if ($LASTEXITCODE -ne 0) { throw '秘密鍵の読み込みに失敗しました。' }",
-    );
-  }
-  if (inputSource === 'clipboard') {
-    readPowerShell(
-      cipherPrompt,
-      '$fumiCipher',
-      format === 'pgp' ? '^-----BEGIN PGP MESSAGE-----' : '^-----BEGIN AGE ENCRYPTED FILE-----',
-    );
-    lines.push(`    $fumiCipher | ${decrypt}`);
-  } else {
-    lines.push(`    ${decrypt} ${input}`);
-  }
-  lines.push(
-    "    if ($LASTEXITCODE -ne 0) { throw '復号に失敗しました。' }",
-    '  } finally {',
-    '    if ($null -ne $fumiTemp) {',
-    ...(isolatedGpg
-      ? [
-          '      try {',
-          '        gpgconf --homedir $fumiTemp --kill gpg-agent 2>$null',
-          '      } finally {',
-          '        Remove-Item -LiteralPath $fumiTemp -Recurse -Force',
-          '      }',
-        ]
-      : ['      Remove-Item -LiteralPath $fumiTemp -Recurse -Force']),
-    '    }',
-    '  }',
-    '}',
-  );
-  return { format, filename, command: lines.join('\n') };
+export function createDecryptionCommand(shell = 'posix') {
+  if (shell === 'posix') return posix;
+  if (shell === 'powershell') return powershell;
+  throw new Error('実行する環境は POSIX または PowerShell です。');
 }

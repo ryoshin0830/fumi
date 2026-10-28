@@ -21,7 +21,7 @@ const finished = () =>
 async function fit(stage) {
   const bounds = await page.evaluate(() => {
     const button = document.getElementById('result-panel').hidden
-      ? ['command-copy-button', 'command-save-button', 'run-button']
+      ? ['command-copy-button', 'run-button']
           .map((id) => document.getElementById(id))
           .find((button) => button.checkVisibility()) || document.getElementById('run-button')
       : document.querySelector('.result-actions .primary-button:not([hidden])');
@@ -46,9 +46,7 @@ async function fit(stage) {
     stage + ': page scroll ' + JSON.stringify(bounds),
   );
   assert.ok(bounds.documentWidth <= bounds.width, stage + ': horizontal scroll');
-  if (
-    !['long-file-signature', 'command-tips', 'command-cipher-path', 'web-key-tips'].includes(stage)
-  )
+  if (!['long-file-signature', 'web-key-tips'].includes(stage))
     assert.ok(bounds.panelOverflow <= 1, stage + ': unnecessary inner form scroll');
   if (bounds.actionVisible)
     assert.ok(
@@ -119,49 +117,15 @@ for (const [width, height] of [
   await page.click('#clear-button');
   await fit('method-choice');
   await page.click('#decrypt-command');
-  await page.fill('#decrypt-text', cipher);
   assert.equal(
-    await page.evaluate(() => document.getElementById('command-copy-button').hidden),
+    await page.evaluate(() => document.getElementById('terminal-command').checkVisibility()),
     true,
   );
-  await fit('command-pgp-save');
-  const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-  await page.click('#command-save-button');
-  const download = await downloadPromise;
-  assert.equal(download.suggestedFilename(), 'message.txt.asc');
-  await fit('command-pgp-key-choice');
-  await page.selectOption('#command-key-source', 'keyring');
-  await fit('command-pgp');
-  await page.click('#command-tips > summary');
-  await page.click('#command-cipher-path-box summary');
-  await page.fill('#command-cipher-path', '~/Downloads/received message.asc');
-  await fit('command-cipher-path');
-  await page.click('#command-cipher-path-box summary');
-  await page.click('#command-tips > summary');
-  await page.click('#command-edit-cipher');
-  await page.fill('#decrypt-text', '-----BEGIN AGE ENCRYPTED FILE-----\n');
-  await fit('command-age-save');
-  await page.selectOption('#command-input-source', 'clipboard');
-  await page.selectOption('#command-key-source', 'clipboard');
-  await page.evaluate(() => {
-    document.getElementById('command-tips').open = true;
-  });
-  await page.selectOption('#command-clipboard-tool', 'pbpaste');
-  await page.click('#command-tips > summary');
-  await fit('command-age-clipboard');
-  await page.selectOption('#command-input-source', 'file');
-  if (await page.evaluate(() => document.getElementById('command-edit-cipher').checkVisibility()))
-    await page.click('#command-edit-cipher');
-  await page.setInputFiles('#decrypt-file', [base + 'signed.age']);
-  await idle();
-  await page.selectOption('#command-key-source', 'file');
-  await page.fill('#command-key-path', '~/.ssh/identity with a long filename');
-  await fit('command-age-file');
-  await page.click('#command-tips > summary');
-  await fit('command-tips');
-  await page.click('#command-tips > summary');
-  await page.click('#command-edit-cipher');
-  await page.click('#decrypt-file-remove');
+  assert.equal(
+    await page.evaluate(() => document.getElementById('decrypt-text').checkVisibility()),
+    false,
+  );
+  await fit('command-only');
   await page.click('#decrypt-web');
   await page.fill('#decrypt-text', cipher);
   await fit('web-input');

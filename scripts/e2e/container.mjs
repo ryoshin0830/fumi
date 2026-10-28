@@ -32,6 +32,7 @@ try {
   });
   const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await context.newPage();
+  page.setDefaultTimeout(30000);
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   const finished = () =>
@@ -40,12 +41,13 @@ try {
         !document.getElementById('result-panel').hidden &&
         document.getElementById('workspace').getAttribute('aria-busy') === 'false',
     );
+
   const fixtures = [];
   for (const format of ['pgp', 'ssh'])
     for (const protectedKey of [false, true]) {
-      const id = format + (protectedKey ? '-protected' : '-plain');
+      const prefix = format + (protectedKey ? '-protected' : '-plain');
       const password = protectedKey ? 'disposable-e2e-password' : '';
-      const secretFile = join(root, id + '-key');
+      const secretFile = join(root, prefix + '-key');
       let publicKey;
       if (format === 'pgp') {
         const key = await generateKey({
@@ -56,95 +58,89 @@ try {
         });
         publicKey = key.publicKey;
         await writeFile(secretFile, key.privateKey, { mode: 0o600 });
-        run('gpg', ['--homedir', keyring, '--batch', '--import', secretFile]);
       } else {
         run('ssh-keygen', ['-q', '-t', 'ed25519', '-N', password, '-f', secretFile]);
         publicKey = await readFile(secretFile + '.pub', 'utf8');
       }
-      const original = join(root, id + '-original.txt');
-      const plaintext = 'コンテナで暗号化 → ブラウザーのCopy → zshで復号。\n';
-      await writeFile(original, plaintext);
-      await page.goto('http://127.0.0.1:3000');
-      await page.click('#manual-key-button');
-      await page.fill('#recipient-text', publicKey);
-      await page.fill('#encrypt-text', plaintext);
-      await page.click('#run-button');
-      await finished();
-      const ciphertext = await page.locator('#result-text').textContent();
-      const cipherFile = join(root, id + (format === 'pgp' ? '.asc' : '.age'));
-      const download = page.waitForEvent('download');
-      await page.click('#save-button');
-      await (await download).saveAs(cipherFile);
-      assert.equal(await readFile(cipherFile, 'utf8'), ciphertext);
-      fixtures.push({
-        id,
-        format,
-        protectedKey,
-        password,
-        secretFile,
-        original,
-        ciphertext,
-        cipherFile,
-      });
+      for (const binary of protectedKey ? [false] : [false, true]) {
+        const id = prefix + (binary ? '-binary' : '-text');
+        const plaintext = binary
+          ? 'binary\u0000\u001b[31munsafe terminal bytes'
+          : '復号結果が端末に表示されます。\nコンテナE2Eで確認。';
+        const original = join(root, id + '-original');
+        await writeFile(original, plaintext);
+        await page.goto('http://127.0.0.1:3000');
+        await page.click('#manual-key-button');
+        await page.fill('#recipient-text', publicKey);
+        await page.fill('#encrypt-text', plaintext);
+        await page.click('#run-button');
+        await finished();
+        const ciphertext = await page.locator('#result-text').textContent();
+        const cipherFile = join(root, id + (format === 'pgp' ? '.asc' : '.age'));
+        const download = page.waitForEvent('download');
+        await page.click('#save-button');
+        await (await download).saveAs(cipherFile);
+        assert.equal(await readFile(cipherFile, 'utf8'), ciphertext);
+        fixtures.push({
+          id,
+          format,
+          protectedKey,
+          password,
+          secretFile,
+          original,
+          ciphertext,
+          cipherFile,
+          binary,
+        });
+      }
     }
 
-  async function terminalCase(
-    fixture,
-    keySource,
-    inputSource,
-    delivery = 'clipboard',
-    shell = '/bin/zsh',
-  ) {
-    const id = `${fixture.id}-${keySource}-${inputSource}-${delivery}-${shell.split('/').pop()}`;
+  async function terminalCase(fixture, scenario = 'paste') {
+    const id = fixture.id + '-' + scenario;
     if (process.env.FUMI_E2E_CASE && !id.includes(process.env.FUMI_E2E_CASE)) return;
     const cwd = join(root, id);
     await mkdir(cwd);
+    await writeFile(join(cwd, 'restored'), 'existing file must stay');
     await page.goto('http://127.0.0.1:3000');
     await page.click('#decrypt-tab');
     await page.click('#decrypt-command');
-    await page.fill('#decrypt-text', fixture.ciphertext);
-    if (inputSource === 'file') {
-      assert.equal(await page.locator('#command-copy-button').isVisible(), false);
-      const download = page.waitForEvent('download');
-      await page.click('#command-save-button');
-      const saved = await download;
-      await saved.saveAs(join(cwd, saved.suggestedFilename()));
-    } else {
-      await page.selectOption('#command-input-source', 'clipboard');
-    }
-    await page.selectOption('#command-key-source', keySource);
-    if (keySource === 'file') {
-      await page.setInputFiles('#command-key-file', fixture.secretFile);
-      await page.fill('#command-key-path', fixture.secretFile);
-    }
-    if (inputSource === 'clipboard' || keySource === 'clipboard') {
-      if (!(await page.locator('#command-tips').evaluate((node) => node.open)))
-        await page.click('#command-tips > summary');
-      await page.selectOption('#command-clipboard-tool', 'xclip');
-    }
+    assert.equal(await page.locator('#terminal-command').isVisible(), true);
+    assert.equal(await page.locator('#decrypt-text').isVisible(), false);
+    assert.equal(
+      await page
+        .locator(
+          '#command-decryption select, #command-decryption details, #command-decryption textarea, #command-decryption input',
+        )
+        .count(),
+      0,
+    );
     await page.click('#command-copy-button');
     await page.waitForFunction(
       () => document.getElementById('command-copy-label').textContent === 'コピーしました',
     );
     const command = await page.locator('#terminal-command').textContent();
-    const inputs = [];
-    if (keySource === 'clipboard')
-      inputs.push({
-        kind: 'key',
-        file: fixture.secretFile,
-        delivery:
-          delivery === 'interrupt' ? 'interrupt' : delivery === 'paste' ? 'paste' : 'clipboard',
-      });
-    if (inputSource === 'clipboard') {
-      if (delivery === 'wrong-paste')
-        inputs.push({ kind: 'cipher', file: fixture.secretFile, delivery: 'paste' });
-      inputs.push({
-        kind: 'cipher',
-        file: fixture.cipherFile,
-        delivery: delivery === 'paste' ? 'paste' : 'clipboard',
-      });
+    assert.doesNotMatch(command, /pbpaste|xclip|Get-Clipboard|--output restored/);
+    let cipherFile = fixture.cipherFile;
+    if (scenario === 'tampered') {
+      const lines = fixture.ciphertext.split('\n');
+      const index = lines.findLastIndex((line) => /^[A-Za-z0-9+/]{10,}={0,2}$/.test(line));
+      assert.ok(index > 0);
+      lines[index] = (lines[index][0] === 'A' ? 'B' : 'A') + lines[index].slice(1);
+      cipherFile = join(cwd, 'tampered');
+      await writeFile(cipherFile, lines.join('\n'));
     }
-    run('gpgconf', ['--homedir', keyring, '--kill', 'gpg-agent']);
+    const cipher = { kind: 'cipher', file: cipherFile };
+    const secret = { kind: 'key', file: fixture.secretFile };
+    const inputs = [cipher, secret];
+    if (scenario === 'wrong-cipher') inputs.unshift({ kind: 'cipher', file: fixture.secretFile });
+    if (scenario === 'wrong-key') inputs.splice(1, 0, { kind: 'key', file: cipherFile });
+    if (scenario === 'blank') {
+      inputs.unshift({ kind: 'cipher', delivery: 'blank' });
+      inputs.splice(2, 0, { kind: 'key', delivery: 'blank' });
+    }
+    if (scenario === 'interrupt-cipher')
+      inputs.splice(0, inputs.length, { kind: 'cipher', delivery: 'interrupt' });
+    if (scenario === 'interrupt-key') inputs.splice(1, 1, { kind: 'key', delivery: 'interrupt' });
     const config = join(cwd, 'config.json');
     await writeFile(
       config,
@@ -154,52 +150,48 @@ try {
         keyring,
         command,
         inputs,
-        shell,
         password: fixture.password,
         original: fixture.original,
+        binary: fixture.binary,
+        expectFailure: scenario === 'tampered',
       }),
     );
     const result = await new Promise((resolve) => {
-      const process = spawn('python3', ['scripts/e2e/terminal.py', config]);
+      const child = spawn('python3', ['scripts/e2e/terminal.py', config]);
       let stdout = '',
         stderr = '';
-      process.stdout.on('data', (chunk) => {
+      child.stdout.on('data', (chunk) => {
         stdout += chunk;
       });
-      process.stderr.on('data', (chunk) => {
+      child.stderr.on('data', (chunk) => {
         stderr += chunk;
       });
-      process.on('exit', (status) => resolve({ status, stdout, stderr }));
+      child.on('exit', (status) => resolve({ status, stdout, stderr }));
     });
     console.log(result.stdout.trim());
     const row = JSON.parse(result.stdout.trim());
     rows.push(row);
-    assert.equal(result.status, 0, `${id}: ${JSON.stringify(row)} ${result.stderr}`);
+    assert.equal(result.status, 0, id + ': ' + JSON.stringify(row) + ' ' + result.stderr);
   }
 
-  // The reported failure: private key pasted at the ciphertext prompt must be
-  // consumed and rejected, then allow the correct ciphertext without shell execution.
-  await terminalCase(fixtures[0], 'clipboard', 'clipboard', 'wrong-paste');
-  await terminalCase(fixtures[1], 'clipboard', 'clipboard', 'interrupt');
-  for (const fixture of fixtures) {
-    for (const keySource of fixture.format === 'pgp'
-      ? ['keyring', 'file', 'clipboard']
-      : ['file', 'clipboard'])
-      for (const inputSource of ['file', 'clipboard'])
-        await terminalCase(fixture, keySource, inputSource);
-    await terminalCase(fixture, 'clipboard', 'clipboard', 'paste');
-  }
-  if (!process.env.FUMI_E2E_CASE || process.env.FUMI_E2E_CASE === 'web-visibility') {
-    for (const fixture of fixtures) {
+  for (const fixture of fixtures) await terminalCase(fixture);
+  const pgpPlain = fixtures.find((f) => f.format === 'pgp' && !f.protectedKey && !f.binary);
+  const sshPlain = fixtures.find((f) => f.format === 'ssh' && !f.protectedKey && !f.binary);
+  const protectedPgp = fixtures.find((f) => f.format === 'pgp' && f.protectedKey);
+  await terminalCase(pgpPlain, 'wrong-cipher');
+  await terminalCase(sshPlain, 'wrong-key');
+  await terminalCase(protectedPgp, 'blank');
+  await terminalCase(pgpPlain, 'interrupt-cipher');
+  await terminalCase(protectedPgp, 'interrupt-key');
+  await terminalCase(pgpPlain, 'tampered');
+  await terminalCase(sshPlain, 'tampered');
+
+  if (!process.env.FUMI_E2E_CASE) {
+    for (const fixture of fixtures.filter((f) => !f.binary)) {
       await page.goto('http://127.0.0.1:3000');
       await page.click('#decrypt-tab');
       await page.click('#decrypt-web');
-      assert.equal(
-        await page.locator('#secret-text').isVisible(),
-        true,
-        'Private-key paste must be immediately available',
-      );
-      assert.equal(await page.locator('#secret-paste-button').isVisible(), true);
+      assert.equal(await page.locator('#secret-text').isVisible(), true);
       await page.fill('#decrypt-text', fixture.ciphertext);
       await page.fill('#secret-text', await readFile(fixture.secretFile, 'utf8'));
       if (fixture.protectedKey) {
@@ -223,22 +215,41 @@ try {
       await page.setViewportSize({ width, height });
       await page.goto('http://127.0.0.1:3000');
       await page.click('#decrypt-tab');
-      await page.click('#decrypt-web');
-      const fixture = fixtures[1];
-      await page.fill('#decrypt-text', fixture.ciphertext);
-      await page.fill('#secret-text', await readFile(fixture.secretFile, 'utf8'));
-      await page.locator('#passphrase').waitFor({ state: 'visible' });
-      const bounds = await page.evaluate(() => ({
+      await page.click('#decrypt-command');
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+            .map((animation) => animation.finished.catch(() => {})),
+        ),
+      );
+      const commandBounds = await page.evaluate(() => ({
         page: document.documentElement.scrollHeight - innerHeight,
         form:
           document.getElementById('decrypt-panel').scrollHeight -
           document.getElementById('decrypt-panel').clientHeight,
-        bottom: document.getElementById('run-button').getBoundingClientRect().bottom,
+        code: document.getElementById('terminal-command').getBoundingClientRect().height,
+        bottom: document.getElementById('command-copy-button').getBoundingClientRect().bottom,
       }));
-      assert.equal(bounds.page, 0);
-      assert.ok(bounds.form <= 1, JSON.stringify(bounds));
-      assert.ok(bounds.bottom <= height);
-      await page.screenshot({ path: join(output, `web-${width}x${height}.png`) });
+      assert.equal(commandBounds.page, 0);
+      assert.ok(commandBounds.form <= 1);
+      assert.ok(commandBounds.code > 200);
+      assert.ok(commandBounds.bottom <= height);
+      await page.screenshot({ path: join(output, 'command-' + width + 'x' + height + '.png') });
+      await page.click('#decrypt-web');
+      await page.fill('#decrypt-text', protectedPgp.ciphertext);
+      await page.fill('#secret-text', await readFile(protectedPgp.secretFile, 'utf8'));
+      await page.locator('#passphrase').waitFor({ state: 'visible' });
+      assert.ok(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollHeight <= innerHeight + 1 &&
+            document.getElementById('decrypt-panel').scrollHeight <=
+              document.getElementById('decrypt-panel').clientHeight + 1,
+        ),
+      );
+      await page.screenshot({ path: join(output, 'web-' + width + 'x' + height + '.png') });
     }
   }
   assert.deepEqual(errors, []);
@@ -248,6 +259,8 @@ try {
       browserErrors: errors,
       realClipboard: true,
       realPTY: true,
+      visibleText: true,
+      overwritePrompts: false,
     }),
   );
 } finally {
@@ -255,7 +268,4 @@ try {
   await browser?.close();
   server.kill();
   xvfb.kill();
-  try {
-    run('gpgconf', ['--homedir', keyring, '--kill', 'gpg-agent']);
-  } catch {}
 }
