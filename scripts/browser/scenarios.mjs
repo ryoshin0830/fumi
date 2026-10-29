@@ -1,6 +1,9 @@
 const task = await taskSpace(__FUMI_TASK__);
 console.log({ taskSpaceId: task.spaceId });
 const page = task.page('p1');
+await page.cdp('Page.addScriptToEvaluateOnNewDocument', {
+  source: "localStorage.setItem('fumi-locale', 'ja');",
+});
 const { readFile, writeFile } = await import('node:fs/promises');
 const { randomBytes } = await import('node:crypto');
 const assert = (await import('node:assert/strict')).default;

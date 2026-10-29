@@ -1,3 +1,4 @@
+import { setText, setError, initLocale } from './i18n.js';
 import { $ } from './ui/dom.js';
 import { renderResultView } from './ui/result.js';
 import { renderSignatureView } from './ui/signature.js';
@@ -7,6 +8,8 @@ import { createDecryptionCommand } from './ui/decryption.js';
 import { resolveGitHub, clearGitHubKeyCache } from './recipients.js';
 import { runCrypto, cancelCrypto } from './worker-client.js';
 import { MAX_BYTES, MAX_ENCRYPTED_BYTES, MAX_KEY_BYTES, byteLength } from './limits.js';
+
+initLocale();
 
 const drafts = Object.fromEntries(
   ['encrypt', 'decrypt', 'secret', 'recipient'].map((kind) => [
@@ -45,33 +48,37 @@ const secretIsPath = () => {
 };
 const ownerOf = (kind) => (kind === 'secret' ? 'decrypt' : kind === 'recipient' ? 'encrypt' : kind);
 const announce = (text) => {
-  $('live-status').textContent = text;
+  setText($('live-status'), text);
 };
 function clearErrors() {
   for (const node of document.querySelectorAll('.field-error')) {
     node.hidden = true;
-    node.textContent = '';
+    setText(node, '');
   }
   for (const node of document.querySelectorAll('[aria-invalid]'))
     node.removeAttribute('aria-invalid');
 }
 function errorAt(id, message, input, focus = true) {
   const node = $(id);
-  node.textContent = message;
+  setError(node, message);
   node.hidden = false;
   node.tabIndex = -1;
   const field = input && !$(input).disabled && $(input).checkVisibility() ? $(input) : node;
   if (input) $(input).setAttribute('aria-invalid', 'true');
   if (focus) field.focus();
-  announce(message);
+  setError($('live-status'), message);
 }
 function updateForm() {
   document.documentElement.dataset.operation = mode;
-  $('intro-action').textContent = mode === 'encrypt' ? '暗号化。' : '復号。';
-  $('intro-copy-first').textContent =
-    mode === 'encrypt' ? '宛先のGitHubユーザー名で、' : '受け取った暗号文を、';
-  $('intro-copy-last').textContent =
-    mode === 'encrypt' ? '文章やファイルを暗号化できます。' : 'ブラウザーやコマンドで開けます。';
+  setText($('intro-action'), mode === 'encrypt' ? '暗号化。' : '復号。');
+  setText(
+    $('intro-copy-first'),
+    mode === 'encrypt' ? '宛先のGitHubユーザー名で、' : '受け取った暗号文を、',
+  );
+  setText(
+    $('intro-copy-last'),
+    mode === 'encrypt' ? '文章やファイルを暗号化できます。' : 'ブラウザーやコマンドで開けます。',
+  );
   for (const operation of ['encrypt', 'decrypt']) {
     $(operation + '-panel').hidden = operation !== mode;
     $(operation + '-tab').setAttribute('aria-selected', String(operation === mode));
@@ -87,10 +94,12 @@ function updateForm() {
   $('github-recipient').hidden = manual;
   $('recipient-key-box').hidden = !manualOpen;
   $('manual-key-button').hidden = manualOpen;
-  $('github-key-button').textContent =
+  setText(
+    $('github-key-button'),
     manual || !$('github-user').value.trim()
       ? 'GitHubユーザー名で指定する'
-      : '別のGitHubユーザー名を入力';
+      : '別のGitHubユーザー名を入力',
+  );
   $('recipient-status').hidden = manualOpen;
   $('password-box').hidden = !passwordNeeded;
   $('web-key-tips').hidden = passwordNeeded;
@@ -100,14 +109,16 @@ function updateForm() {
   $('decrypt-web').checked = decryptMethod === 'web';
   $('decrypt-command').checked = decryptMethod === 'command';
   $('decrypt-status').hidden = decryptChecked && !passwordNeeded && !busy;
-  $('decrypt-status').textContent =
+  setText(
+    $('decrypt-status'),
     busy && mode === 'decrypt'
       ? '復号中…'
       : passwordNeeded
         ? 'この秘密鍵にはパスワードが必要です。'
         : decryptChecked
           ? '入力を確認して、もう一度試してください。'
-          : '暗号文と秘密鍵がそろうと、自動で復号します。';
+          : '暗号文と秘密鍵がそろうと、自動で復号します。',
+  );
   recipientPreview.update(
     $('github-user').value,
     mode === 'encrypt' && !manual && !drafts.encrypt.result,
@@ -125,8 +136,10 @@ function updateForm() {
     mode === 'decrypt' && (decryptMethod !== 'web' || (!passwordNeeded && !decryptChecked));
   updateCommand();
   if (!busy)
-    $('run-label').textContent =
-      mode === 'encrypt' ? '暗号化' : passwordNeeded ? '復号' : 'もう一度確認';
+    setText(
+      $('run-label'),
+      mode === 'encrypt' ? '暗号化' : passwordNeeded ? '復号' : 'もう一度確認',
+    );
   $('cancel-button').hidden = !busy;
   $('main-form').hidden = Boolean(drafts[mode].result);
   $('workspace').setAttribute('aria-busy', String(busy));
@@ -138,7 +151,7 @@ function updateCommand() {
   $('decrypt-source-group').hidden = decryptMethod !== 'web';
   $('command-copy-button').hidden = !active;
   $('command-copy-button').disabled = busy;
-  if (!active) $('command-copy-label').textContent = 'コマンドをコピー';
+  if (!active) setText($('command-copy-label'), 'コマンドをコピー');
   $('terminal-command').textContent = commandText;
 }
 function renderResult() {
@@ -154,7 +167,7 @@ function setBusy(value, label = '処理中…') {
   $('decrypt-command').disabled = false;
   $('cancel-button').disabled = false;
   if (value) {
-    $('run-label').textContent = label;
+    setText($('run-label'), label);
     announce(label);
   }
   renderSignatureView(drafts[mode].result, mode);
@@ -219,7 +232,7 @@ async function withJob(label, action, errorId = 'operation-error', automatic = f
 }
 function showManualKey(reason = '相手の公開鍵を入力してください。') {
   manualOpen = true;
-  $('recipient-reason').textContent = reason;
+  setText($('recipient-reason'), reason);
   updateForm();
 }
 function resetDecryptCheck() {
@@ -267,7 +280,7 @@ async function resolveRecipient(current) {
       );
     } else {
       controller = new AbortController();
-      $('run-label').textContent = '鍵を取得中…';
+      setText($('run-label'), '鍵を取得中…');
       source = await resolveGitHub($('github-user').value, {
         signal: controller.signal,
       });
@@ -328,7 +341,7 @@ async function checkSignature(result, current) {
   }
   renderSignatureView(result, mode);
   updateForm();
-  announce($('signature-status-title').textContent);
+  setText($('live-status'), () => $('signature-status-title').textContent);
 }
 function performOperation(automatic = false) {
   if (busy || $('run-button').disabled || (mode === 'decrypt' && decryptMethod !== 'web')) return;
@@ -348,7 +361,7 @@ function performOperation(automatic = false) {
           cipherMotion.reset();
           return;
         }
-        $('run-label').textContent = '暗号化中…';
+        setText($('run-label'), '暗号化中…');
         result = await runCrypto('encrypt', {
           data: typeof value === 'string' ? new TextEncoder().encode(value) : value,
           recipients: recipient.keys,
@@ -584,7 +597,7 @@ $('copy-button').addEventListener('click', async () => {
     await navigator.clipboard.writeText(result.text);
     if (drafts[mode].result !== result) return;
     $('result-error').hidden = true;
-    $('copy-label').textContent = 'コピーしました';
+    setText($('copy-label'), 'コピーしました');
     announce('コピーしました。');
   } catch {
     if (drafts[mode].result !== result) return;
@@ -599,7 +612,7 @@ $('copy-button').addEventListener('click', async () => {
     const selection = getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
-    $('copy-label').textContent = '選択してコピー';
+    setText($('copy-label'), '選択してコピー');
     announce('選択した文字をコピーしてください。');
   }
 });
@@ -624,12 +637,12 @@ $('command-copy-button').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(command);
     if (decryptMethod === 'command' && mode === 'decrypt') {
-      $('command-copy-label').textContent = 'コピーしました';
+      setText($('command-copy-label'), 'コピーしました');
       announce('コマンドをコピーしました。');
     }
   } catch {
     if (mode !== 'decrypt' || decryptMethod !== 'command') return;
-    $('command-copy-label').textContent = 'コマンドをコピー';
+    setText($('command-copy-label'), 'コマンドをコピー');
     errorAt('command-error', 'コピーできませんでした。選択したコマンドをコピーしてください。');
     $('terminal-command').focus();
     const range = document.createRange();

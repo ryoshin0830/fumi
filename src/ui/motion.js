@@ -1,3 +1,4 @@
+import { setText, t } from '../i18n.js';
 import { $ } from './dom.js';
 
 export function createCipherMotion() {
@@ -5,7 +6,12 @@ export function createCipherMotion() {
   const text = $('cipher-letters');
   const caption = $('cipher-caption');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const phrase = Array.from('メッセージの内容');
+  let phrase = Array.from(t('メッセージの内容'));
+  document.addEventListener('fumi:localechange', () => {
+    phrase = Array.from(t('メッセージの内容'));
+    if (illustration.dataset.motion === 'idle') text.textContent = phrase.join('');
+    else if (illustration.dataset.motion === 'complete') finalText();
+  });
   const alphabet = 'a7F2k9Q4m8B6x3P5';
   let frame;
   let operation = 'encrypt';
@@ -23,7 +29,7 @@ export function createCipherMotion() {
     stop();
     illustration.dataset.motion = 'idle';
     text.textContent = phrase.join('');
-    caption.textContent = '処理はこの端末内で行います。';
+    setText(caption, '処理はこの端末内で行います。');
   }
   function choreograph(mode) {
     const easing = getComputedStyle(illustration).getPropertyValue('--ease-out').trim();
@@ -89,7 +95,7 @@ export function createCipherMotion() {
     operation = mode;
     illustration.dataset.operation = mode;
     illustration.dataset.motion = 'working';
-    caption.textContent = mode === 'encrypt' ? '暗号化しています…' : '復号しています…';
+    setText(caption, mode === 'encrypt' ? '暗号化しています…' : '復号しています…');
     if (reduced.matches) {
       finalText();
       return;
@@ -130,7 +136,7 @@ export function createCipherMotion() {
       return;
     }
     illustration.dataset.motion = 'complete';
-    caption.textContent = operation === 'encrypt' ? '暗号化しました。' : '復号しました。';
+    setText(caption, operation === 'encrypt' ? '暗号化しました。' : '復号しました。');
   }
   reduced.addEventListener('change', () => {
     if (reduced.matches) {

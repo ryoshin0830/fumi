@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLocale } from '../src/i18n.js';
 import { createCipherMotion } from '../src/ui/motion.js';
 
 function setup(t) {
@@ -12,8 +13,9 @@ function setup(t) {
       'cipher-seal',
       'cipher-orbit',
       'cipher-wave',
-    ].map((id) => [id, { dataset: {}, textContent: '' }]),
+    ].map((id) => [id, { dataset: {}, textContent: '', isConnected: true }]),
   );
+  const listeners = new Map();
   const frames = new Map();
   const animations = [];
   for (const node of Object.values(nodes))
@@ -35,7 +37,12 @@ function setup(t) {
   };
   let next = 0;
   for (const [name, value] of Object.entries({
-    document: { getElementById: (id) => nodes[id] },
+    document: {
+      documentElement: {},
+      getElementById: (id) => nodes[id],
+      addEventListener: (type, callback) => listeners.set(type, callback),
+      dispatchEvent: (event) => listeners.get(event.type)?.(event),
+    },
     matchMedia: () => media,
     getComputedStyle: () => ({ getPropertyValue: () => 'cubic-bezier(0.23, 1, 0.32, 1)' }),
     requestAnimationFrame: (callback) => {
@@ -99,4 +106,18 @@ test('reduced motion schedules no frames and stops an animation already running'
   media.matches = true;
   media.change();
   assert.equal(frames.size, 0);
+});
+
+test('changing locale updates illustration copy without restarting active animation', (t) => {
+  const { motion, nodes, frames } = setup(t);
+  motion.reset();
+  setLocale('en', null);
+  assert.equal(nodes['cipher-letters'].textContent, 'Message content');
+  assert.equal(nodes['cipher-caption'].textContent, 'Processing stays on this device.');
+  motion.start('decrypt');
+  const scheduled = frames.size;
+  setLocale('fr', null);
+  assert.equal(frames.size, scheduled);
+  assert.equal(nodes['cipher-caption'].textContent, 'Déchiffrement…');
+  setLocale('ja', null);
 });

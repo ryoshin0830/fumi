@@ -1,3 +1,4 @@
+import { clearText, setText, setError, getLocale, t } from '../i18n.js';
 import { $ } from './dom.js';
 
 export function renderSignatureView(result, mode) {
@@ -11,7 +12,7 @@ export function renderSignatureView(result, mode) {
       'signature-algorithm',
       'signature-checked-at',
     ])
-      $(id).textContent = '';
+      clearText($(id));
     $('signature-account').removeAttribute('href');
     $('copy-button').disabled = true;
     $('save-button').disabled = true;
@@ -49,23 +50,27 @@ export function renderSignatureView(result, mode) {
   };
   const [title, message, glyph] = states[state] || states.unavailable;
   $('signature-status').className = `signature-status ${state}`;
-  $('signature-status-title').textContent = title;
-  $('signature-status-message').textContent = verification?.message || message;
+  setText($('signature-status-title'), title);
+  setError($('signature-status-message'), verification?.message || message);
   $('signature-status-glyph').setAttribute('href', '#' + glyph);
   $('signature-account-line').hidden = !verification;
   $('signature-details').hidden = !verification;
   $('retry-verification').hidden =
     mode !== 'decrypt' || !verification || !['unavailable', 'mismatch'].includes(state);
   if (verification) {
-    $('signature-account-label').textContent = state === 'verified' ? '署名者' : '署名者（申告）';
+    setText($('signature-account-label'), state === 'verified' ? '署名者' : '署名者（申告）');
     $('signature-account').textContent = '@' + verification.github;
     $('signature-account').href = `https://github.com/${verification.github}`;
-    $('signature-algorithm').textContent =
-      verification.type === 'pgp' ? 'OpenPGP署名' : 'OpenSSH署名（SSHSIG）';
+    setText(
+      $('signature-algorithm'),
+      verification.type === 'pgp' ? 'OpenPGP署名' : 'OpenSSH署名（SSHSIG）',
+    );
     $('signature-fingerprint').textContent = verification.fingerprint;
-    $('signature-checked-at').textContent = verification.checkedAt
-      ? new Date(verification.checkedAt).toLocaleString('ja-JP')
-      : '未照合';
+    setText($('signature-checked-at'), () =>
+      verification.checkedAt
+        ? new Date(verification.checkedAt).toLocaleString(getLocale())
+        : t('未照合'),
+    );
   }
   $('copy-button').disabled = state === 'pending' || result.text === null;
   $('save-button').disabled = state === 'pending';

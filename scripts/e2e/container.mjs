@@ -30,7 +30,10 @@ try {
     headless: false,
     args: ['--no-sandbox', '--disable-dev-shm-usage', '--ozone-platform=x11'],
   });
-  const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
+  const context = await browser.newContext({
+    locale: 'ja-JP',
+    permissions: ['clipboard-read', 'clipboard-write'],
+  });
   const page = await context.newPage();
   page.setDefaultTimeout(30000);
   const errors = [];
