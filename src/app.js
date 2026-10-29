@@ -339,9 +339,9 @@ async function checkSignature(result, current) {
       'GitHubとの照合が完了していません。 ' +
       (error.name === 'AbortError' ? '中止しました。' : error.message);
   }
-  renderSignatureView(result, mode);
+  const statusTitle = renderSignatureView(result, mode);
   updateForm();
-  setText($('live-status'), () => $('signature-status-title').textContent);
+  announce(statusTitle);
 }
 function performOperation(automatic = false) {
   if (busy || $('run-button').disabled || (mode === 'decrypt' && decryptMethod !== 'web')) return;

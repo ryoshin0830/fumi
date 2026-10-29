@@ -143,3 +143,26 @@ test('explicit text bindings update without reading or changing unregistered use
     throw error;
   }
 });
+
+test('web and standalone privacy descriptions emitted by the build have complete translations', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { parse } = await import('parse5');
+  for (const file of ['../.generated/web.html', '../index.html']) {
+    const html = await readFile(new URL(file, import.meta.url), 'utf8');
+    let description;
+    function text(node) {
+      return node.nodeName === '#text' ? node.value : (node.childNodes || []).map(text).join('');
+    }
+    function walk(node) {
+      if (node.attrs?.some((attr) => attr.name === 'data-key-description'))
+        description = text(node).trim();
+      for (const child of node.childNodes || []) walk(child);
+    }
+    walk(parse(html));
+    assert.ok(description, file + ' must include its privacy description');
+    assert.ok(
+      Object.hasOwn(messages, description),
+      file + ' privacy description must be translated',
+    );
+  }
+});

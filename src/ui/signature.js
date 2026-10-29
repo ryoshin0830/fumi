@@ -74,4 +74,5 @@ export function renderSignatureView(result, mode) {
   }
   $('copy-button').disabled = state === 'pending' || result.text === null;
   $('save-button').disabled = state === 'pending';
+  return title;
 }

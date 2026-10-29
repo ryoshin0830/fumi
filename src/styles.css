@@ -1439,9 +1439,21 @@ dialog details {
 @media (max-width: 600px) {
   .site-header > .header-actions {
     flex: 1 1 100%;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .header-actions > button {
+    flex-shrink: 0;
   }
   .language-control {
+    flex: 1;
+    min-width: 0;
     margin-inline-end: auto;
+  }
+  .language-control select {
+    width: 100%;
+    min-width: 0;
+    max-width: 110px;
   }
   .field-toolbar,
   .recipient-toolbar,
@@ -1457,5 +1469,14 @@ dialog details {
   .tool-shell textarea {
     height: 56px;
     min-height: 48px;
+  }
+  .tool-shell:has(#recipient-key-box:not([hidden])) #github-recipient {
+    display: none;
+  }
+  .tool-shell:has(#password-box:not([hidden])) #decrypt-status {
+    display: none;
+  }
+  .password-label {
+    margin-block: 0;
   }
 }
