@@ -7,14 +7,20 @@
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="light" />
-    <meta name="description" content="メッセージやファイルを、ブラウザ内で暗号化・復号。" />
-    <title>Fumi — 暗号化・復号</title>
+    <meta
+      name="description"
+      content="メッセージやファイルを、ブラウザ内で暗号化・復号。"
+      data-i18n-content="メッセージやファイルを、ブラウザ内で暗号化・復号。"
+    />
+    <title data-i18n="Fumi — 暗号化・復号">Fumi — 暗号化・復号</title>
     <style>
       __STYLES__
     </style>
   </head>
   <body>
-    <a class="skip-link" href="#workspace">操作画面へ移動</a>
+    <a class="skip-link" href="#workspace"
+      ><span data-i18n="操作画面へ移動">操作画面へ移動</span></a
+    >
     <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <symbol id="lock" viewBox="0 0 24 24">
@@ -46,32 +52,50 @@
       </defs>
     </svg>
     <header class="site-header">
-      <a href="#" class="brand" aria-label="Fumi ホーム"
+      <a href="#" class="brand" aria-label="Fumi ホーム" data-i18n-aria-label="Fumi ホーム"
         ><span class="brand-mark"
           ><svg class="icon" aria-hidden="true"><use href="#envelope" /></svg
         ></span>
         <span class="brand-name">Fumi</span></a
       >
-      <div>
+      <div class="header-actions">
+        <div class="language-control">
+          <label for="language-select"><span data-i18n="言語">言語</span></label
+          ><select id="language-select"></select>
+        </div>
         <button
           id="clear-button"
           type="button"
           class="quiet-button"
           aria-label="両方の入力と鍵を消去"
+          data-i18n-aria-label="両方の入力と鍵を消去"
         >
-          すべて消去</button
-        ><button id="help-button" type="button" class="quiet-button" aria-label="使い方">
+          <span data-i18n="すべて消去">すべて消去</span></button
+        ><button
+          id="help-button"
+          type="button"
+          class="quiet-button"
+          aria-label="使い方"
+          data-i18n-aria-label="使い方"
+        >
           <svg class="icon" aria-hidden="true"><use href="#info" /></svg>
         </button>
       </div>
     </header>
     <main class="app-shell">
       <section class="intro" aria-labelledby="intro-title">
-        <h1 id="intro-title">メッセージを<br /><span id="intro-action">暗号化。</span></h1>
+        <h1 id="intro-title">
+          <span data-i18n="メッセージを">メッセージを</span><br /><span id="intro-action"
+            ><span data-i18n="暗号化。">暗号化。</span></span
+          >
+        </h1>
         <p class="intro-copy">
-          <span id="intro-copy-first">宛先のGitHubユーザー名で、</span><br /><span
-            id="intro-copy-last"
-            >文章やファイルを暗号化できます。</span
+          <span id="intro-copy-first"
+            ><span data-i18n="宛先のGitHubユーザー名で、">宛先のGitHubユーザー名で、</span></span
+          ><br /><span id="intro-copy-last"
+            ><span data-i18n="文章やファイルを暗号化できます。"
+              >文章やファイルを暗号化できます。</span
+            ></span
           >
         </p>
         <div
@@ -87,7 +111,9 @@
           <div id="cipher-paper" class="private-letter">
             <svg class="icon letter-envelope"><use href="#envelope" /></svg>
 
-            <span id="cipher-letters" class="cipher-letters">メッセージの内容</span>
+            <span id="cipher-letters" class="cipher-letters"
+              ><span data-i18n="メッセージの内容">メッセージの内容</span></span
+            >
             <span class="letter-line"></span><span class="letter-line short"></span>
             <span class="cipher-fragments" aria-hidden="true">7A 4F 92 B8</span>
           </div>
@@ -101,12 +127,16 @@
             ><i class="cipher-spark"></i><i class="cipher-spark"></i><i class="cipher-spark"></i
             ><i class="cipher-spark"></i><i class="cipher-spark"></i><i class="cipher-spark"></i>
           </div>
-          <div class="cipher-tag"><span class="status-dot"></span>端末内で暗号化</div>
-          <p id="cipher-caption" class="cipher-caption">処理はこの端末内で行います。</p>
+          <div class="cipher-tag">
+            <span class="status-dot"></span><span data-i18n="端末内で暗号化">端末内で暗号化</span>
+          </div>
+          <p id="cipher-caption" class="cipher-caption">
+            <span data-i18n="処理はこの端末内で行います。">処理はこの端末内で行います。</span>
+          </p>
         </div>
       </section>
       <div class="tool-shell">
-        <div class="operation-tabs" role="tablist" aria-label="操作">
+        <div class="operation-tabs" role="tablist" aria-label="操作" data-i18n-aria-label="操作">
           <button
             id="encrypt-tab"
             type="button"
@@ -115,7 +145,7 @@
             aria-controls="encrypt-panel"
             data-operation="encrypt"
           >
-            暗号化</button
+            <span data-i18n="暗号化">暗号化</span></button
           ><button
             id="decrypt-tab"
             type="button"
@@ -125,21 +155,30 @@
             data-operation="decrypt"
             tabindex="-1"
           >
-            復号
+            <span data-i18n="復号">復号</span>
           </button>
         </div>
-        <noscript><p>JavaScriptを有効にしてください。</p></noscript>
-        <section id="workspace" class="workspace" aria-label="暗号化・復号" aria-busy="false">
+        <noscript><p>Please enable JavaScript. / JavaScriptを有効にしてください。</p></noscript>
+        <section
+          id="workspace"
+          class="workspace"
+          aria-label="暗号化・復号"
+          aria-busy="false"
+          data-i18n-aria-label="暗号化・復号"
+        >
           <form id="main-form" autocomplete="off">
             <section id="encrypt-panel" role="tabpanel" aria-labelledby="encrypt-tab">
               <section class="input-group" data-drop="encrypt">
                 <div class="field-toolbar">
-                  <label for="encrypt-text">内容</label
+                  <label for="encrypt-text"><span data-i18n="内容">内容</span></label
                   ><label class="file-button" for="encrypt-file"
-                    ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg>ファイル<input
+                    ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
+                    ><span data-i18n="ファイル">ファイル</span
+                    ><input
                       id="encrypt-file"
                       type="file"
                       aria-label="内容のファイルを選ぶ"
+                      data-i18n-aria-label="内容のファイルを選ぶ"
                   /></label>
                 </div>
                 <div id="encrypt-text-pane">
@@ -149,6 +188,7 @@
                     spellcheck="false"
                     autocapitalize="none"
                     aria-describedby="encrypt-error"
+                    data-i18n-placeholder="メッセージを入力"
                   ></textarea>
                 </div>
                 <div id="encrypt-file-pane" class="file-chip" hidden>
@@ -159,21 +199,23 @@
                     type="button"
                     class="quiet-button"
                     aria-label="内容のファイルを取り除く"
+                    data-i18n-aria-label="内容のファイルを取り除く"
                   >
-                    外す
+                    <span data-i18n="外す">外す</span>
                   </button>
                 </div>
               </section>
               <p id="encrypt-error" class="field-error" role="alert" hidden></p>
               <div id="github-recipient" class="recipient-group">
                 <div class="recipient-toolbar">
-                  <label for="github-user">宛先のGitHubユーザー名</label
+                  <label for="github-user"
+                    ><span data-i18n="宛先のGitHubユーザー名">宛先のGitHubユーザー名</span></label
                   ><button
                     id="manual-key-button"
                     type="button"
                     class="quiet-button manual-key-button"
                   >
-                    公開鍵を使う
+                    <span data-i18n="公開鍵を使う">公開鍵を使う</span>
                   </button>
                 </div>
                 <input
@@ -184,6 +226,8 @@
                   spellcheck="false"
                   autocapitalize="none"
                   aria-describedby="recipient-error"
+                  data-i18n-placeholder="例：octocat"
+                  dir="ltr"
                 />
                 <div id="recipient-preview" class="recipient-preview" hidden>
                   <div id="recipient-card" class="recipient-summary" hidden>
@@ -210,13 +254,16 @@
                 <p id="recipient-reason" class="field-hint"></p>
                 <section class="input-group" data-drop="recipient">
                   <div class="field-toolbar">
-                    <label for="recipient-text">宛先の公開鍵</label
+                    <label for="recipient-text"
+                      ><span data-i18n="宛先の公開鍵">宛先の公開鍵</span></label
                     ><label class="file-button" for="recipient-file"
                       ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
-                      >ファイル<input
+                      ><span data-i18n="ファイル">ファイル</span
+                      ><input
                         id="recipient-file"
                         type="file"
                         aria-label="公開鍵のファイルを選ぶ"
+                        data-i18n-aria-label="公開鍵のファイルを選ぶ"
                     /></label>
                   </div>
                   <div id="recipient-text-pane">
@@ -226,6 +273,8 @@
                       spellcheck="false"
                       autocapitalize="none"
                       aria-describedby="recipient-error"
+                      data-i18n-placeholder="GPGまたはSSHの公開鍵を貼り付け"
+                      dir="ltr"
                     ></textarea>
                   </div>
                   <div id="recipient-file-pane" class="file-chip" hidden>
@@ -236,24 +285,25 @@
                       type="button"
                       class="quiet-button"
                       aria-label="公開鍵のファイルを取り除く"
+                      data-i18n-aria-label="公開鍵のファイルを取り除く"
                     >
-                      外す
+                      <span data-i18n="外す">外す</span>
                     </button>
                   </div>
                 </section>
 
                 <button id="github-key-button" type="button" class="quiet-button">
-                  GitHubユーザー名で指定する
+                  <span data-i18n="GitHubユーザー名で指定する">GitHubユーザー名で指定する</span>
                 </button>
               </section>
             </section>
             <section id="decrypt-panel" role="tabpanel" aria-labelledby="decrypt-tab" hidden>
               <fieldset class="decrypt-methods">
-                <legend>復号方法</legend>
+                <legend><span data-i18n="復号方法">復号方法</span></legend>
                 <div>
                   <label
                     ><input id="decrypt-web" name="decrypt-method" type="radio" value="web" /><span
-                      >ブラウザーで復号</span
+                      ><span data-i18n="ブラウザーで復号">ブラウザーで復号</span></span
                     ></label
                   >
                   <label
@@ -262,23 +312,25 @@
                       name="decrypt-method"
                       type="radio"
                       value="command"
-                    /><span>コマンドで復号</span></label
+                    /><span><span data-i18n="コマンドで復号">コマンドで復号</span></span></label
                   >
                 </div>
               </fieldset>
               <div id="decrypt-content" hidden>
                 <section id="decrypt-source-group" class="input-group" data-drop="decrypt">
                   <div class="field-toolbar">
-                    <label for="decrypt-text">暗号文</label>
+                    <label for="decrypt-text"><span data-i18n="暗号文">暗号文</span></label>
                     <div class="field-input-actions">
                       <button id="decrypt-paste-button" type="button" class="quiet-button">
-                        貼り付け</button
+                        <span data-i18n="貼り付け">貼り付け</span></button
                       ><label class="file-button" for="decrypt-file"
                         ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
-                        >ファイル<input
+                        ><span data-i18n="ファイル">ファイル</span
+                        ><input
                           id="decrypt-file"
                           type="file"
                           aria-label="暗号文のファイルを選ぶ"
+                          data-i18n-aria-label="暗号文のファイルを選ぶ"
                       /></label>
                     </div>
                   </div>
@@ -289,6 +341,8 @@
                       spellcheck="false"
                       autocapitalize="none"
                       aria-describedby="decrypt-error"
+                      data-i18n-placeholder="受け取った暗号文"
+                      dir="ltr"
                     ></textarea>
                   </div>
                   <div id="decrypt-file-pane" class="file-chip" hidden>
@@ -299,8 +353,9 @@
                       type="button"
                       class="quiet-button"
                       aria-label="暗号文のファイルを取り除く"
+                      data-i18n-aria-label="暗号文のファイルを取り除く"
                     >
-                      外す
+                      <span data-i18n="外す">外す</span>
                     </button>
                   </div>
                 </section>
@@ -308,17 +363,19 @@
                 <div id="web-decryption" hidden>
                   <section class="input-group" data-drop="secret">
                     <div class="field-toolbar">
-                      <label for="secret-text">秘密鍵</label>
+                      <label for="secret-text"><span data-i18n="秘密鍵">秘密鍵</span></label>
                       <div class="field-input-actions">
                         <button id="secret-paste-button" type="button" class="quiet-button">
-                          貼り付け
+                          <span data-i18n="貼り付け">貼り付け</span>
                         </button>
                         <label class="file-button" for="secret-file"
                           ><svg class="icon" aria-hidden="true"><use href="#upload" /></svg
-                          >ファイル<input
+                          ><span data-i18n="ファイル">ファイル</span
+                          ><input
                             id="secret-file"
                             type="file"
                             aria-label="秘密鍵のファイルを選ぶ"
+                            data-i18n-aria-label="秘密鍵のファイルを選ぶ"
                         /></label>
                       </div>
                     </div>
@@ -329,6 +386,8 @@
                         spellcheck="false"
                         autocapitalize="none"
                         aria-describedby="secret-error"
+                        data-i18n-placeholder="秘密鍵を貼り付け"
+                        dir="ltr"
                       ></textarea>
                     </div>
                     <div id="secret-file-pane" class="file-chip" hidden>
@@ -339,16 +398,21 @@
                         type="button"
                         class="quiet-button"
                         aria-label="秘密鍵のファイルを取り除く"
+                        data-i18n-aria-label="秘密鍵のファイルを取り除く"
                       >
-                        外す
+                        <span data-i18n="外す">外す</span>
                       </button>
                     </div>
                   </section>
                   <p id="decrypt-status" class="field-hint" role="status" aria-live="polite">
-                    暗号文と秘密鍵を入力すると、自動で復号を試します。
+                    <span data-i18n="暗号文と秘密鍵がそろうと、自動で復号します。"
+                      >暗号文と秘密鍵がそろうと、自動で復号します。</span
+                    >
                   </p>
                   <div id="password-box" hidden>
-                    <label class="password-label" for="passphrase">秘密鍵のパスワード</label>
+                    <label class="password-label" for="passphrase"
+                      ><span data-i18n="秘密鍵のパスワード">秘密鍵のパスワード</span></label
+                    >
                     <input
                       id="passphrase"
                       data-1p-ignore
@@ -356,33 +420,56 @@
                       autocomplete="off"
                       spellcheck="false"
                       aria-describedby="decrypt-status secret-error"
+                      dir="ltr"
                     />
                   </div>
                   <p id="secret-error" class="field-error" role="alert" hidden></p>
                   <details id="web-key-tips" class="decryption-tips" data-reveal>
-                    <summary>Tips：秘密鍵の場所</summary>
+                    <summary>
+                      <span data-i18n="Tips：秘密鍵の場所">Tips：秘密鍵の場所</span>
+                    </summary>
                     <p>
-                      SSH鍵は通常 <code>~/.ssh</code> にあります。<code>.pub</code>
-                      は公開鍵です。対応する秘密鍵ファイルを選びます。
+                      <span
+                        data-i18n="SSH鍵は通常 ~/.ssh にあります。.pub は公開鍵です。対応する秘密鍵ファイルを選びます。"
+                        >SSH鍵は通常 ~/.ssh にあります。.pub
+                        は公開鍵です。対応する秘密鍵ファイルを選びます。</span
+                      >
                     </p>
                     <p>
-                      <code>gh</code>で新規作成した鍵の候補は
-                      <code>~/.ssh/id_ed25519</code> です。別の名前・場所の鍵の場合もあります。
+                      <span
+                        data-i18n="ghで新規作成した鍵の候補は ~/.ssh/id_ed25519 です。別の名前・場所の鍵の場合もあります。"
+                        >ghで新規作成した鍵の候補は ~/.ssh/id_ed25519
+                        です。別の名前・場所の鍵の場合もあります。</span
+                      >
                     </p>
                     <p>
-                      macOS：ファイル選択画面で <kbd>⌘⇧G</kbd> を押し、<code>~/.ssh</code>
-                      を入力します。Windows：アドレス欄に
-                      <code>%USERPROFILE%\.ssh</code> を入力します。
+                      <span
+                        data-i18n="macOSではファイル選択画面で ⌘⇧G を押して ~/.ssh を入力します。Windowsではアドレス欄に %USERPROFILE%\.ssh を入力します。"
+                        >macOSではファイル選択画面で ⌘⇧G を押して ~/.ssh
+                        を入力します。Windowsではアドレス欄に %USERPROFILE%\.ssh
+                        を入力します。</span
+                      >
                     </p>
-                    <p>GPGでは、対応する秘密鍵のファイルを選んでください。</p>
+                    <p>
+                      <span data-i18n="GPGでは、対応する秘密鍵のファイルを選んでください。"
+                        >GPGでは、対応する秘密鍵のファイルを選んでください。</span
+                      >
+                    </p>
                   </details>
                 </div>
-                <section id="command-decryption" hidden aria-label="コマンドで復号">
+                <section
+                  id="command-decryption"
+                  hidden
+                  aria-label="コマンドで復号"
+                  data-i18n-aria-label="コマンドで復号"
+                >
                   <pre
                     id="terminal-command"
+                    dir="ltr"
                     tabindex="0"
                     aria-label="復号コマンド"
                     translate="no"
+                    data-i18n-aria-label="復号コマンド"
                   ></pre>
                   <p id="command-error" class="field-error" role="alert" hidden></p>
                 </section>
@@ -391,19 +478,22 @@
             <p id="operation-error" class="field-error" role="alert" hidden></p>
             <div class="form-actions">
               <button id="command-copy-button" type="button" class="primary-button" hidden>
-                <span id="command-copy-label">コマンドをコピー</span>
+                <span id="command-copy-label"
+                  ><span data-i18n="コマンドをコピー">コマンドをコピー</span></span
+                >
               </button>
-              <button id="cancel-button" type="button" class="quiet-button" hidden>中止</button
+              <button id="cancel-button" type="button" class="quiet-button" hidden>
+                <span data-i18n="中止">中止</span></button
               ><button id="run-button" type="submit" class="primary-button" disabled>
                 <svg class="icon" aria-hidden="true"><use href="#lock" /></svg>
-                <span id="run-label">暗号化</span>
+                <span id="run-label"><span data-i18n="暗号化">暗号化</span></span>
               </button>
             </div>
           </form>
           <section id="result-panel" aria-labelledby="result-title" hidden>
             <div id="result-content" class="result-content">
               <div class="result-heading">
-                <h2 id="result-title" tabindex="-1">暗号文</h2>
+                <h2 id="result-title" tabindex="-1"><span data-i18n="暗号文">暗号文</span></h2>
               </div>
               <div id="delivery-guide" class="delivery-guide" hidden>
                 <div class="delivery-visual" aria-hidden="true">
@@ -420,39 +510,53 @@
                   <p id="delivery-note"></p>
                 </div>
               </div>
-              <section id="signature-status" class="signature-status" aria-label="署名の検証結果">
+              <section
+                id="signature-status"
+                class="signature-status"
+                aria-label="署名の検証結果"
+                data-i18n-aria-label="署名の検証結果"
+              >
                 <div class="signature-status-top">
                   <span class="signature-status-icon"
                     ><svg class="icon" aria-hidden="true">
                       <use id="signature-status-glyph" href="#info" /></svg
                   ></span>
                   <div class="signature-status-copy">
-                    <h3 id="signature-status-title">署名なし</h3>
+                    <h3 id="signature-status-title"><span data-i18n="署名なし">署名なし</span></h3>
                     <p class="signature-account-line" id="signature-account-line" hidden>
-                      <span id="signature-account-label">署名者（申告）</span
-                      ><a id="signature-account" target="_blank" rel="noreferrer noopener"></a>
+                      <span id="signature-account-label"
+                        ><span data-i18n="署名者（申告）">署名者（申告）</span></span
+                      ><a
+                        id="signature-account"
+                        dir="ltr"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      ></a>
                     </p>
                     <p id="signature-status-message"></p>
                   </div>
                   <button id="retry-verification" type="button" class="quiet-button" hidden>
-                    再照合
+                    <span data-i18n="再照合">再照合</span>
                   </button>
                 </div>
                 <button id="result-cancel-button" type="button" class="quiet-button" hidden>
-                  照合を中止
+                  <span data-i18n="照合を中止">照合を中止</span>
                 </button>
                 <details id="signature-details" hidden>
-                  <summary>署名の詳細</summary>
+                  <summary><span data-i18n="署名の詳細">署名の詳細</span></summary>
                   <dl>
-                    <dt>署名形式</dt>
+                    <dt><span data-i18n="署名形式">署名形式</span></dt>
                     <dd id="signature-algorithm"></dd>
-                    <dt>鍵の指紋</dt>
-                    <dd id="signature-fingerprint"></dd>
-                    <dt>確認した時刻</dt>
+                    <dt><span data-i18n="鍵の指紋">鍵の指紋</span></dt>
+                    <dd id="signature-fingerprint" dir="ltr"></dd>
+                    <dt><span data-i18n="確認した時刻">確認した時刻</span></dt>
                     <dd id="signature-checked-at"></dd>
                   </dl>
                   <p>
-                    作成された署名が、現在そのGitHubアカウントに登録されている公開鍵で検証できることを確かめます。鍵ファイル全体の破損検査や、実在人物の身元保証ではありません。
+                    <span
+                      data-i18n="作成された署名が、現在そのGitHubアカウントに登録されている公開鍵で検証できることを確かめます。鍵ファイル全体の破損検査や、実在人物の身元保証ではありません。"
+                      >作成された署名が、現在そのGitHubアカウントに登録されている公開鍵で検証できることを確かめます。鍵ファイル全体の破損検査や、実在人物の身元保証ではありません。</span
+                    >
                   </p>
                 </details>
               </section>
@@ -462,26 +566,33 @@
               </div>
               <pre
                 id="result-text"
+                dir="auto"
                 class="result-preview"
                 tabindex="0"
                 aria-label="処理結果"
                 translate="no"
                 hidden
+                data-i18n-aria-label="処理結果"
               ></pre>
               <p id="preview-hint" class="field-hint" hidden></p>
               <p id="result-error" class="field-error" role="alert" hidden></p>
             </div>
             <div class="result-actions">
               <button id="copy-button" type="button" class="primary-button">
-                <span id="copy-label">コピー</span></button
-              ><button id="save-button" type="button" class="secondary-button">保存</button
-              ><button id="edit-result-button" type="button" class="quiet-button">編集</button>
+                <span id="copy-label"><span data-i18n="コピー">コピー</span></span></button
+              ><button id="save-button" type="button" class="secondary-button">
+                <span data-i18n="保存">保存</span></button
+              ><button id="edit-result-button" type="button" class="quiet-button">
+                <span data-i18n="編集">編集</span>
+              </button>
             </div>
           </section>
         </section>
         <p class="privacy-caption">
           <svg class="icon" aria-hidden="true"><use href="#lock" /></svg
-          >内容と秘密鍵は、端末内で処理します。
+          ><span data-i18n="内容と秘密鍵は、端末内で処理します。"
+            >内容と秘密鍵は、端末内で処理します。</span
+          >
         </p>
       </div>
       <p id="live-status" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></p>
@@ -490,26 +601,46 @@
     <dialog id="help-dialog" aria-labelledby="help-title">
       <div class="dialog-header">
         <h2 id="help-title">Fumi</h2>
-        <button id="help-close" type="button" class="quiet-button" aria-label="閉じる">
+        <button
+          id="help-close"
+          type="button"
+          class="quiet-button"
+          aria-label="閉じる"
+          data-i18n-aria-label="閉じる"
+        >
           <svg class="icon" aria-hidden="true"><use href="#close" /></svg>
         </button>
       </div>
       <p>
         <a href="https://github.com/ryoshin0830/fumi" target="_blank" rel="noreferrer noopener"
-          >GitHubでソースコードを見る</a
+          ><span data-i18n="GitHubでソースコードを見る">GitHubでソースコードを見る</span></a
         >
       </p>
-      <p>宛先のGitHub公開鍵で暗号化します。開くには、対応する秘密鍵が必要です。</p>
-      <p>__KEY_DESCRIPTION__署名付きの受信データも、公開鍵を取得して照合します。</p>
+      <p>
+        <span data-i18n="宛先のGitHub公開鍵で暗号化します。開くには、対応する秘密鍵が必要です。"
+          >宛先のGitHub公開鍵で暗号化します。開くには、対応する秘密鍵が必要です。</span
+        >
+      </p>
+      <p>
+        <span data-key-description>__KEY_DESCRIPTION__</span>
+        <span
+          ><span data-i18n="署名付きの受信データも、公開鍵を取得して照合します。"
+            >署名付きの受信データも、公開鍵を取得して照合します。</span
+          ></span
+        >
+      </p>
       <details>
-        <summary>制限・プライバシー</summary>
+        <summary><span data-i18n="制限・プライバシー">制限・プライバシー</span></summary>
         <p>
-          元データは50 MB、暗号文は72 MB、鍵は1
-          MBまで。入力や履歴は保存しません。消去は入力と参照を取り除き、メモリからの完全消去を保証するものではありません。
+          <span
+            data-i18n="元データは50 MB、暗号文は72 MB、鍵は1 MBまで。入力や履歴は保存しません。言語設定だけをこのブラウザーに保存します。消去は入力と参照を取り除き、メモリからの完全消去を保証するものではありません。"
+            >元データは50 MB、暗号文は72 MB、鍵は1
+            MBまで。入力や履歴は保存しません。言語設定だけをこのブラウザーに保存します。消去は入力と参照を取り除き、メモリからの完全消去を保証するものではありません。</span
+          >
         </p>
       </details>
       <details>
-        <summary>ライセンス</summary>
+        <summary><span data-i18n="ライセンス">ライセンス</span></summary>
         <pre class="license-text">__LICENSE__</pre>
       </details>
     </dialog>

@@ -45,6 +45,12 @@ npm start
 
 「すべて消去」は両画面の入力・鍵・結果をまとめて消去します。デモ・サンプル生成・多段階の入力ウィザードはありません。
 
+## 言語
+
+日本語、英語、中国語（簡体字・繁体字）、韓国語、スペイン語、フランス語、ドイツ語、ポルトガル語、ヒンディー語、アラビア語に対応しています。初回はブラウザーの言語設定を使い、対応する言語がなければ英語を表示します。ヘッダーの言語メニューでいつでも切り替えられ、入力・ファイル・処理結果は保持されます。
+
+選んだ言語だけをこのブラウザーに保存します。保存が制限されている環境でも切り替えられます。翻訳はWeb版・単一HTML版に内蔵され、翻訳サービスへの通信は行いません。本文・鍵・ファイル名・コマンドは自動翻訳しません。
+
 ## プライバシーと制限
 
 - 暗号処理・署名の整合性検証はブラウザ内です。サーバーへの操作時リクエストは、公開鍵・公開プロフィール・アイコン取得用のGETだけです。
@@ -69,12 +75,14 @@ npm run test:cli
 ```sh
 npm run fixtures:signatures
 npm run test:browser
+npm run test:i18n
 npm run test:motion
 npm run test:disclosure
 npm run test:layout
 npm run test:methods
 # 別の配信先を確認する場合
 FUMI_URL=https://your-app.vercel.app npm run test:browser
+npm run test:i18n
 ```
 
 ブラウザスイートは暗号処理に実際の使い捨て鍵を使い、GitHub照合の応答は成功・鍵変更・通信失敗・取得制限の各ケースを再現します。実際のGitHub取得は別途APIで確認します。
@@ -95,7 +103,7 @@ DOCKER_CONTEXT=desktop-linux npm run test:container
 
 このリポジトリをNext.jsプロジェクトとしてインポートします。Node.js 24、Build Commandは `npm run build`。環境変数やAPIトークンはアプリの動作に不要です。`main` をProduction Branchにすると、以降のpushが本番デプロイになります。
 
-画面は約107 KiB、暗号エンジンは必要時に同一オリジンのハッシュ付き静的Workerとして取得します。生成HTMLはNext.jsのファイルトレースに含めます。初回の暗号処理にはエンジンのダウンロードが必要です。
+画面は約226 KiB、暗号エンジンは必要時に同一オリジンのハッシュ付き静的Workerとして取得します。生成HTMLはNext.jsのファイルトレースに含めます。初回の暗号処理にはエンジンのダウンロードが必要です。
 
 サーバーなしで使う場合は、`npm run build:client` で生成される `index.html` を開けます。単一HTMLは約9.6 MiBで、暗号エンジンを内包します。**このファイル版の公開鍵・公開プロフィール取得はGitHub REST APIを使用します。** アイコンは頭文字で表示します。 公開鍵の直接入力で暗号処理をオフラインでも利用できます。
 

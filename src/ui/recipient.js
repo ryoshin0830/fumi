@@ -1,3 +1,4 @@
+import { clearText, setText } from '../i18n.js';
 import { $ } from './dom.js';
 import { parseGitHub, usesKeyServer, resolveGitHub } from '../recipients.js';
 import { loadGitHubProfile } from '../profiles.js';
@@ -17,9 +18,9 @@ export function createRecipientPreview({ onKeyFallback } = {}) {
     controller = null;
     $('recipient-preview').hidden = true;
     $('recipient-card').hidden = true;
-    $('recipient-status').textContent = '';
+    setText($('recipient-status'), '');
     for (const id of ['recipient-name', 'recipient-login', 'recipient-bio', 'recipient-initial'])
-      $(id).textContent = '';
+      clearText($(id));
     avatar.hidden = true;
     avatar.removeAttribute('src');
   }
@@ -38,7 +39,7 @@ export function createRecipientPreview({ onKeyFallback } = {}) {
     reset();
     username = next;
     $('recipient-preview').hidden = false;
-    $('recipient-status').textContent = '宛先を確認中…';
+    setText($('recipient-status'), '宛先を確認中…');
     timer = setTimeout(async () => {
       const request = new AbortController();
       controller = request;
@@ -62,17 +63,19 @@ export function createRecipientPreview({ onKeyFallback } = {}) {
       }
       if (keys.status === 'rejected' || keys.value.errors.length) {
         const reason = '公開鍵を取得できませんでした。相手の公開鍵を入力できます。';
-        $('recipient-status').textContent = reason;
+        setText($('recipient-status'), reason);
         onKeyFallback?.(reason);
       } else if (!keys.value.pgp.length && !keys.value.ssh.length) {
         const reason = '公開鍵が登録されていません。相手の公開鍵を入力してください。';
-        $('recipient-status').textContent = '';
+        setText($('recipient-status'), '');
         onKeyFallback?.(reason);
       } else {
-        $('recipient-status').textContent =
+        setText(
+          $('recipient-status'),
           person.status === 'fulfilled'
             ? ''
-            : 'プロフィールは表示できませんが、GitHubの公開鍵を使えます。';
+            : 'プロフィールは表示できませんが、GitHubの公開鍵を使えます。',
+        );
       }
     }, 450);
   }

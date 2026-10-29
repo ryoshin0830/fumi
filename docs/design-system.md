@@ -57,3 +57,12 @@ Content, private keys and passwords stay in the browser. Public-key, public-prof
 - [NN/g: Aesthetic and minimalist design](https://www.nngroup.com/articles/aesthetic-minimalist-design/): extra information competes with the information a task needs.
 - [Apple design session](https://developer.apple.com/videos/play/wwdc2026/250/).
 - [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill).
+
+## Languages
+
+The header has a native language selector with a visible label, native language
+names and a 44px target. Eleven languages share the existing type, color and
+spacing system. Labels wrap on narrow screens; Arabic uses RTL layout while
+key fields, usernames and commands keep LTR direction. Locale changes refresh
+only explicitly registered interface copy and attributes, preserving drafts,
+files, results, profile data and ongoing work. Only the locale is saved locally.

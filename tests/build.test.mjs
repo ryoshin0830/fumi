@@ -37,8 +37,8 @@ test('Next.js serves the web build with a same-origin-only connection policy', a
 test('web HTML stays small and loads its crypto worker from a same-origin hashed static asset', async () => {
   const html = await readFile(new URL('../.generated/web.html', import.meta.url), 'utf8');
   assert.ok(
-    Buffer.byteLength(html) < 200 * 1024,
-    'Web HTML must not embed the multi-megabyte crypto worker',
+    Buffer.byteLength(html) < 256 * 1024,
+    'Web HTML includes eleven locale catalogs but must not embed the multi-megabyte crypto worker',
   );
   const workerPath = html.match(/\/assets\/crypto-worker-[A-Z0-9]+\.js/)?.[0];
   assert.ok(workerPath, 'Web build must reference a content-hashed worker');
