@@ -1,4 +1,4 @@
-import { normalizeProfile } from '../src/profiles.js';
+import { parseGitHubProfile } from './github-profile-html.mjs';
 
 const USERNAME = /^(?!.*--)[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i;
 const json = (body, status = 200) =>
@@ -32,7 +32,8 @@ async function publicResponse(request, url, limit, fetcher, render) {
       headers: {
         Accept: url.includes('avatars.')
           ? 'image/png,image/jpeg,image/webp,image/gif'
-          : 'application/vnd.github+json',
+          : 'text/html',
+        'User-Agent': 'Fumi',
       },
     });
     controller.signal.throwIfAborted();
@@ -93,10 +94,15 @@ export async function githubProfileResponse(request, { username, fetcher = fetch
   if (invalid) return invalid;
   return publicResponse(
     request,
-    `https://api.github.com/users/${username}`,
-    65536,
+    `https://github.com/${username}`,
+    2 * 1024 * 1024,
     fetcher,
-    (bytes) => json(normalizeProfile(JSON.parse(new TextDecoder().decode(bytes)), username)),
+    (bytes, type) => {
+      if (type !== 'text/html') throw new Error('Expected public profile HTML');
+      const response = json(parseGitHubProfile(new TextDecoder().decode(bytes), username));
+      response.headers.set('vercel-cdn-cache-control', 'public, max-age=300');
+      return response;
+    },
   );
 }
 
