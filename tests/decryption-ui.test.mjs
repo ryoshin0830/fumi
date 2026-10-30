@@ -27,9 +27,11 @@ async function fixture(output, fail = false) {
   await writeFile(join(directory, 'output'), output);
   await writeFile(join(directory, 'restored'), 'existing file');
   const script =
-    '#!/bin/sh\ncase " $* " in *" --import "*) exit 0;; esac\n' +
+    '#!/bin/sh\nfor argument do source=$argument; done\n' +
+    'case " $* " in *" --import "*) cat "$source" > "$FUMI_TEST_KEY"; exit 0;; esac\n' +
+    'cat "$source" > "$FUMI_TEST_CIPHER"\n' +
     'while [ "$#" -gt 0 ]; do\nif [ "$1" = --output ]; then shift; destination=$1; fi\nshift\ndone\n' +
-    'cat "$FUMI_TEST_OUTPUT" > "$destination"\nexit ' +
+    'if [ -s "$FUMI_TEST_OUTPUT" ]; then cat "$FUMI_TEST_OUTPUT" > "$destination"; fi\nexit ' +
     (fail ? '19' : '0') +
     '\n';
   for (const tool of ['gpg', 'age'])
@@ -39,6 +41,8 @@ async function fixture(output, fail = false) {
     ...process.env,
     PATH: join(directory, 'bin') + delimiter + process.env.PATH,
     FUMI_TEST_OUTPUT: join(directory, 'output'),
+    FUMI_TEST_KEY: join(directory, 'received-key'),
+    FUMI_TEST_CIPHER: join(directory, 'received-cipher'),
   };
   const execute = (input) =>
     spawnSync('/bin/sh', ['-c', createDecryptionCommand()], {
@@ -120,9 +124,89 @@ test('incomplete input fails without printing a key or result', async () => {
   }
 });
 
+for (const [format, cipher, secret] of [
+  ['armored-pgp', pgp, key],
+  ['binary-pgp', Buffer.from([0xc1, 3, 0, 255]), Buffer.from([0xc5, 0, 255])],
+  ['armored-age', block('AGE ENCRYPTED FILE'), block('OPENSSH PRIVATE KEY')],
+  ['raw-age', Buffer.from('age-encryption.org/v1\n\x00\xff'), 'AGE-SECRET-KEY-1TEST\n'],
+]) {
+  test(`${format} files are read as bytes and even UTF-8 output is saved privately`, async () => {
+    const f = await fixture('text file contents\r\n');
+    try {
+      const cipherName = '暗号文 with spaces';
+      const keyName = 'key $(touch injected)';
+      await writeFile(join(f.directory, cipherName), cipher);
+      await writeFile(join(f.directory, keyName), secret);
+      const result = f.execute(`"${cipherName}"\n'${keyName}'\n`);
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(!result.stdout.includes('text file contents'));
+      const saved = (await readdir(f.directory)).filter((name) => name.startsWith('restored-'));
+      assert.equal(saved.length, 1);
+      assert.equal(await readFile(join(f.directory, saved[0]), 'utf8'), 'text file contents\r\n');
+      const { stat } = await import('node:fs/promises');
+      assert.equal((await stat(join(f.directory, saved[0]))).mode & 0o777, 0o600);
+      assert.deepEqual(await readFile(join(f.directory, 'received-cipher')), Buffer.from(cipher));
+      if (format.includes('pgp'))
+        assert.deepEqual(await readFile(join(f.directory, 'received-key')), Buffer.from(secret));
+      assert.deepEqual(await readFile(join(f.directory, cipherName)), Buffer.from(cipher));
+      assert.deepEqual(await readFile(join(f.directory, keyName)), Buffer.from(secret));
+      assert.equal(await readFile(join(f.directory, 'restored'), 'utf8'), 'existing file');
+      assert.ok(!(await readdir(f.directory)).includes('injected'));
+    } finally {
+      await f.cleanup();
+    }
+  });
+}
+
+test('missing paths and wrong file types retry before accepting a file and a pasted key', async () => {
+  const f = await fixture(Buffer.from([0, 255]));
+  try {
+    await writeFile(join(f.directory, 'cipher'), pgp);
+    await writeFile(join(f.directory, 'key'), key);
+    const result = f.execute('missing file\nkey\ncipher\n' + key);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /もう一度/);
+    assert.equal((await readdir(f.directory)).filter((n) => n.startsWith('restored-')).length, 1);
+  } finally {
+    await f.cleanup();
+  }
+});
+
+test('pasted text can use a key file and failed file decryption saves no partial output', async () => {
+  for (const fail of [false, true]) {
+    const f = await fixture('authenticated text', fail);
+    try {
+      await writeFile(join(f.directory, 'key'), key);
+      await writeFile(join(f.directory, 'cipher'), pgp);
+      const result = f.execute((fail ? 'cipher\n' : pgp) + 'key\n');
+      assert.equal(result.status, fail ? 19 : 0, result.stderr);
+      assert.equal(result.stdout.includes('authenticated text'), !fail);
+      assert.equal((await readdir(f.directory)).filter((n) => n.startsWith('restored-')).length, 0);
+    } finally {
+      await f.cleanup();
+    }
+  }
+});
+
+test('an empty age file is saved even when age succeeds without creating its output', async () => {
+  const f = await fixture(Buffer.alloc(0));
+  try {
+    await writeFile(join(f.directory, 'cipher.age'), block('AGE ENCRYPTED FILE'));
+    const result = f.execute('cipher.age\nAGE-SECRET-KEY-1TEST\n');
+    assert.equal(result.status, 0, result.stderr);
+    const saved = (await readdir(f.directory)).filter((name) => name.startsWith('restored-'));
+    assert.equal(saved.length, 1);
+    assert.equal((await readFile(join(f.directory, saved[0]))).length, 0);
+  } finally {
+    await f.cleanup();
+  }
+});
+
 test('PowerShell has the same paste flow, verified display and cleanup', () => {
   const command = createDecryptionCommand('powershell');
   assert.doesNotMatch(command, /Get-Clipboard|--output restored/);
   for (const text of ['-AsSecureString', 'finally', 'Remove-Item', 'GetString', '復号した内容'])
+    assert.ok(command.includes(text), text);
+  for (const text of ['ファイルパス', '-LiteralPath', 'ReadAllBytes', 'WriteAllBytes'])
     assert.ok(command.includes(text), text);
 });
