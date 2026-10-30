@@ -1423,22 +1423,45 @@ dialog details {
   justify-content: flex-end;
 }
 .language-control {
-  display: flex;
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  max-width: 100%;
 }
-.language-control label {
-  margin: 0;
+.language-control > .icon {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: 50%;
+  width: 16px;
+  height: 16px;
   color: var(--secondary);
-  font-size: 13px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.language-icon {
+  inset-inline-start: 12px;
+}
+.language-chevron {
+  inset-inline-end: 10px;
 }
 .language-control select {
+  appearance: none;
   width: auto;
   min-height: 44px;
-  max-width: 150px;
+  max-width: 160px;
   margin: 0;
-  padding: 8px;
+  padding-block: 0;
+  padding-inline: 36px 30px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: #e8e8ed;
   font-size: 14px;
+  font-weight: 500;
+  line-height: normal;
+  cursor: pointer;
+}
+.language-control select:hover {
+  background: #dedee5;
 }
 .intro h1,
 .recipient-toolbar,
@@ -1492,7 +1515,6 @@ dialog details {
   .language-control select {
     width: auto;
     min-width: 0;
-    max-width: 150px;
   }
   .field-toolbar,
   .recipient-toolbar,
