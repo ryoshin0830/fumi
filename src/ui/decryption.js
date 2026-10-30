@@ -63,7 +63,6 @@ const posix = String.raw`(
   else
     command -v age >/dev/null 2>&1 || { printf '%s\n' 'age が必要です。' >&2; exit 1; }
     fumi_read '秘密鍵を貼り付けるか、ファイルパスを入力してください。' "$fumi_tmp/key" '^-----BEGIN (OPENSSH |RSA |EC |ENCRYPTED )?PRIVATE KEY-----|^AGE-SECRET-KEY-1' age-key
-    # age can succeed on empty plaintext without creating its output file.
     : > "$fumi_tmp/plaintext" || exit 1
     age --decrypt --identity "$fumi_tmp/key" --output "$fumi_tmp/plaintext" "$fumi_tmp/cipher" || exit $?
   fi
