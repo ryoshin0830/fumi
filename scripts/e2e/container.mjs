@@ -3,7 +3,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright-core';
-import { generateKey } from 'openpgp';
+import { generateKey, readPrivateKey } from 'openpgp';
 
 const root = await mkdtemp('/tmp/fumi-e2e-');
 const output = '/app/test-results/container';
@@ -51,6 +51,7 @@ try {
       const prefix = format + (protectedKey ? '-protected' : '-plain');
       const password = protectedKey ? 'disposable-e2e-password' : '';
       const secretFile = join(root, prefix + '-key');
+      let binarySecretFile;
       let publicKey;
       if (format === 'pgp') {
         const key = await generateKey({
@@ -61,6 +62,12 @@ try {
         });
         publicKey = key.publicKey;
         await writeFile(secretFile, key.privateKey, { mode: 0o600 });
+        binarySecretFile = secretFile + '.gpg';
+        await writeFile(
+          binarySecretFile,
+          (await readPrivateKey({ armoredKey: key.privateKey })).write(),
+          { mode: 0o600 },
+        );
       } else {
         run('ssh-keygen', ['-q', '-t', 'ed25519', '-N', password, '-f', secretFile]);
         publicKey = await readFile(secretFile + '.pub', 'utf8');
@@ -90,10 +97,49 @@ try {
           protectedKey,
           password,
           secretFile,
+          binarySecretFile,
           original,
           ciphertext,
           cipherFile,
           binary,
+        });
+      }
+      for (const [name, bytes] of [
+        [
+          'photo.png',
+          Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aJ1kAAAAASUVORK5CYII=',
+            'base64',
+          ),
+        ],
+        ['notes.txt', Buffer.from('ファイルとして保存する文章。\r\n')],
+        ['empty.bin', Buffer.alloc(0)],
+      ]) {
+        const id = prefix + '-file-' + name;
+        const original = join(root, id);
+        await writeFile(original, bytes);
+        await page.goto('http://127.0.0.1:3000');
+        await page.click('#manual-key-button');
+        await page.fill('#recipient-text', publicKey);
+        await page.setInputFiles('#encrypt-file', original);
+        await page.click('#run-button');
+        await finished();
+        const download = page.waitForEvent('download');
+        await page.click('#save-button');
+        const saved = await download;
+        assert.equal(saved.suggestedFilename(), id + (format === 'pgp' ? '.gpg' : '.age'));
+        const cipherFile = join(root, '暗号文 $(touch injected) ' + saved.suggestedFilename());
+        await saved.saveAs(cipherFile);
+        fixtures.push({
+          id,
+          format,
+          protectedKey,
+          password,
+          secretFile,
+          binarySecretFile,
+          original,
+          cipherFile,
+          fileInput: true,
         });
       }
     }
@@ -124,7 +170,12 @@ try {
     const command = await page.locator('#terminal-command').textContent();
     assert.doesNotMatch(command, /pbpaste|xclip|Get-Clipboard|--output restored/);
     let cipherFile = fixture.cipherFile;
-    if (scenario === 'tampered') {
+    if (scenario === 'tampered' && fixture.fileInput) {
+      const bytes = await readFile(cipherFile);
+      bytes[bytes.length - 1] ^= 1;
+      cipherFile = join(cwd, 'tampered');
+      await writeFile(cipherFile, bytes);
+    } else if (scenario === 'tampered') {
       const lines = fixture.ciphertext.split('\n');
       const index = lines.findLastIndex((line) => /^[A-Za-z0-9+/]{10,}={0,2}$/.test(line));
       assert.ok(index > 0);
@@ -135,6 +186,18 @@ try {
     const cipher = { kind: 'cipher', file: cipherFile };
     const secret = { kind: 'key', file: fixture.secretFile };
     const inputs = [cipher, secret];
+    if (fixture.fileInput || scenario === 'files' || scenario === 'quoted-files') {
+      cipher.delivery = scenario === 'quoted-files' ? 'quoted-path' : 'path';
+      secret.delivery = 'path';
+    }
+    if (scenario === 'file-pasted-key') delete secret.delivery;
+    if (scenario === 'key-file') secret.delivery = 'path';
+    if (scenario === 'binary-key') {
+      secret.file = fixture.binarySecretFile;
+      secret.delivery = 'path';
+    }
+    if (scenario === 'missing-file')
+      inputs.unshift({ kind: 'cipher', delivery: 'path', file: join(root, 'missing-file') });
     if (scenario === 'wrong-cipher') inputs.unshift({ kind: 'cipher', file: fixture.secretFile });
     if (scenario === 'wrong-key') inputs.splice(1, 0, { kind: 'key', file: cipherFile });
     if (scenario === 'blank') {
@@ -156,6 +219,7 @@ try {
         password: fixture.password,
         original: fixture.original,
         binary: fixture.binary,
+        saveFile: fixture.binary || !!cipher.delivery,
         expectFailure: scenario === 'tampered',
       }),
     );
@@ -169,15 +233,19 @@ try {
       child.stderr.on('data', (chunk) => {
         stderr += chunk;
       });
-      child.on('exit', (status) => resolve({ status, stdout, stderr }));
+      child.on('close', (status, signal) => resolve({ status, signal, stdout, stderr }));
     });
     console.log(result.stdout.trim());
+    assert.equal(result.status, 0, id + ': ' + JSON.stringify(result));
     const row = JSON.parse(result.stdout.trim());
     rows.push(row);
     assert.equal(result.status, 0, id + ': ' + JSON.stringify(row) + ' ' + result.stderr);
   }
 
-  for (const fixture of fixtures) await terminalCase(fixture);
+  for (const fixture of fixtures) {
+    await terminalCase(fixture, fixture.fileInput ? 'files' : 'paste');
+    await terminalCase(fixture, fixture.fileInput ? 'file-pasted-key' : 'key-file');
+  }
   const pgpPlain = fixtures.find((f) => f.format === 'pgp' && !f.protectedKey && !f.binary);
   const sshPlain = fixtures.find((f) => f.format === 'ssh' && !f.protectedKey && !f.binary);
   const protectedPgp = fixtures.find((f) => f.format === 'pgp' && f.protectedKey);
@@ -188,9 +256,20 @@ try {
   await terminalCase(protectedPgp, 'interrupt-key');
   await terminalCase(pgpPlain, 'tampered');
   await terminalCase(sshPlain, 'tampered');
+  for (const format of ['pgp', 'ssh']) {
+    const file = fixtures.find((f) => f.format === format && f.fileInput && !f.protectedKey);
+    await terminalCase(file, 'quoted-files');
+    await terminalCase(file, 'missing-file');
+    await terminalCase(file, 'tampered');
+    await terminalCase(file, 'interrupt-key');
+  }
+  for (const file of fixtures.filter(
+    (f) => f.format === 'pgp' && f.fileInput && f.id.endsWith('photo.png'),
+  ))
+    await terminalCase(file, 'binary-key');
 
   if (!process.env.FUMI_E2E_CASE) {
-    for (const fixture of fixtures.filter((f) => !f.binary)) {
+    for (const fixture of fixtures.filter((f) => !f.binary && !f.fileInput)) {
       await page.goto('http://127.0.0.1:3000');
       await page.click('#decrypt-tab');
       await page.click('#decrypt-web');
