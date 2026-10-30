@@ -52,18 +52,27 @@ for (const locale of locales) {
   await page.selectOption('#language-select', locale);
   const select = await page.evaluate(() => {
     const node = document.getElementById('language-select');
+    const bounds = node.getBoundingClientRect();
+    const icons = ['.language-icon', '.language-chevron'].map((selector) =>
+      document.querySelector(selector).getBoundingClientRect(),
+    );
     const style = getComputedStyle(node);
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     context.font = style.font;
     return {
-      width: node.getBoundingClientRect().width,
+      width: bounds.width,
       needed:
         context.measureText(node.selectedOptions[0].textContent).width +
         parseFloat(style.paddingLeft) +
-        parseFloat(style.paddingRight) +
-        18,
-      height: node.getBoundingClientRect().height,
+        parseFloat(style.paddingRight),
+      height: bounds.height,
+      label: node.labels[0]?.textContent.trim(),
+      hitTargets: icons.map(
+        (icon) =>
+          document.elementFromPoint(icon.x + icon.width / 2, icon.y + icon.height / 2) === node,
+      ),
+      iconOffsets: icons.map((icon) => icon.y + icon.height / 2 - (bounds.y + bounds.height / 2)),
       direction: document.documentElement.dir,
       controls: ['.brand', '.language-control', '#clear-button', '#help-button'].map((selector) => {
         const rect = document.querySelector(selector).getBoundingClientRect();
@@ -76,6 +85,16 @@ for (const locale of locales) {
     locale + ' language name is clipped: ' + JSON.stringify(select),
   );
   assert.ok(select.height >= 44, locale + ' language selector is too short');
+  assert.equal(select.label, messages['言語'][locales.indexOf(locale)]);
+  assert.deepEqual(
+    select.hitTargets,
+    [true, true],
+    locale + ' language selector hit target is split',
+  );
+  assert.ok(
+    select.iconOffsets.every((offset) => Math.abs(offset) < 1),
+    locale + ' selector icons are misaligned',
+  );
   for (const [index, control] of select.controls.entries()) {
     assert.ok(
       control.left >= 0 && control.right <= 320,

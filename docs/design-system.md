@@ -60,9 +60,9 @@ Content, private keys and passwords stay in the browser. Public-key, public-prof
 
 ## Languages
 
-The header has a native language selector with a visible label, native language
-names and a 44px target. Eleven languages share the existing type, color and
-spacing system. On narrow screens the language selector stays beside the brand,
+The header has a compact native language selector with a globe icon, an
+accessible label, native language names and a 44px target. Eleven languages
+share the existing type, color and spacing system. On narrow screens the language selector stays beside the brand,
 with clear and help on the next row in keyboard order. Labels wrap as needed;
 Arabic mirrors the selected-operation background, action alignment and empty
 field hints, while key fields, usernames and commands keep LTR input direction. Locale changes refresh
