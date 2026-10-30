@@ -9,6 +9,7 @@ import { encryptPGP } from '../src/pgp.js';
 import { encryptNativePGP } from '../src/native-pgp.js';
 const destination = new URL('../test-results/signatures/', import.meta.url);
 await mkdir(destination, { recursive: true });
+await writeFile(new URL('payload.bin', destination), new Uint8Array([0, 1, 127, 255]));
 const recipient = await pgp.generateKey({
   type: 'ecc',
   curve: 'curve25519Legacy',

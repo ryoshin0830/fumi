@@ -232,6 +232,12 @@ h3 {
     0 20px 60px #1d1d1f06;
   animation: arrive 650ms 80ms var(--ease-out) both;
 }
+@media (min-width: 761px) {
+  .tool-shell {
+    align-self: center;
+    max-height: 720px;
+  }
+}
 .operation-tabs {
   position: relative;
   flex-shrink: 0;
@@ -249,7 +255,8 @@ h3 {
 .operation-tabs::before {
   content: '';
   position: absolute;
-  inset: 4px auto 4px 4px;
+  inset-block: 4px;
+  inset-inline-start: 4px;
   width: calc(50% - 6px);
   border-radius: 9px;
   background: white;
@@ -259,6 +266,9 @@ h3 {
 }
 [data-operation='decrypt'] .operation-tabs::before {
   transform: translateX(calc(100% + 4px));
+}
+[dir='rtl'][data-operation='decrypt'] .operation-tabs::before {
+  transform: translateX(calc(-100% - 4px));
 }
 .operation-tabs button {
   position: relative;
@@ -301,7 +311,8 @@ label {
   align-items: center;
   gap: 6px;
   min-height: 44px;
-  padding: 8px 0 8px 12px;
+  padding-block: 8px;
+  padding-inline: 12px 0;
   color: var(--blue);
   font-size: 14px;
   font-weight: 400;
@@ -474,7 +485,8 @@ summary:hover {
 }
 .manual-key-button {
   margin: 0;
-  padding: 6px 0 6px 8px;
+  padding-block: 6px;
+  padding-inline: 8px 0;
   font-size: 12px;
 }
 .recipient-key-box {
@@ -486,7 +498,7 @@ summary:hover {
   margin-top: 0;
 }
 #github-key-button {
-  padding-left: 0;
+  padding-inline-start: 0;
   color: var(--blue);
 }
 #recipient-text {
@@ -577,7 +589,7 @@ summary:hover {
   overflow-wrap: anywhere;
 }
 .result-actions > .primary-button {
-  margin-right: auto;
+  margin-inline-end: auto;
   min-width: 132px;
 }
 .privacy-caption {
@@ -787,7 +799,15 @@ summary:hover {
     padding: 0 4px;
   }
   .intro h1 {
+    display: flex;
+    flex-wrap: wrap;
     font-size: 26px;
+  }
+  :not(:lang(ja)):not(:lang(zh)) .intro h1 {
+    column-gap: 0.25em;
+  }
+  .intro h1 > span {
+    min-width: 0;
   }
   .intro-copy,
   .intro h1 br {
@@ -1013,7 +1033,8 @@ dialog details {
     flex-wrap: wrap;
   }
   .signature-status .quiet-button {
-    margin: 0 0 0 30px;
+    margin: 0;
+    margin-inline-start: 30px;
   }
 }
 
@@ -1181,7 +1202,7 @@ dialog details {
   margin-top: 6px;
 }
 #command-copy-button {
-  margin-right: auto;
+  margin-inline-end: auto;
 }
 .tool-shell:has(#decrypt-command:checked) #decrypt-panel,
 .tool-shell:has(#decrypt-command:checked) #decrypt-content,
@@ -1429,6 +1450,9 @@ dialog details {
 [dir='rtl'] .intro h1 {
   letter-spacing: normal;
 }
+[dir='rtl'] :is(input, textarea)[dir='ltr']::placeholder {
+  text-align: right;
+}
 [dir='rtl'] .recipient-avatar-wrap {
   direction: ltr;
 }
@@ -1437,23 +1461,38 @@ dialog details {
   right: 16px;
 }
 @media (max-width: 600px) {
-  .site-header > .header-actions {
-    flex: 1 1 100%;
-    flex-wrap: nowrap;
-    gap: 8px;
+  .site-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 4px 8px;
   }
-  .header-actions > button {
-    flex-shrink: 0;
+  .site-header > .header-actions {
+    display: contents;
+  }
+  .brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  #clear-button {
+    grid-column: 2;
+    grid-row: 2;
+    padding-inline: 8px;
+  }
+  #help-button {
+    grid-column: 3;
+    grid-row: 2;
+    padding-inline: 8px;
   }
   .language-control {
-    flex: 1;
+    grid-column: 2 / 4;
+    grid-row: 1;
+    justify-self: end;
     min-width: 0;
-    margin-inline-end: auto;
   }
   .language-control select {
-    width: 100%;
+    width: auto;
     min-width: 0;
-    max-width: 110px;
+    max-width: 150px;
   }
   .field-toolbar,
   .recipient-toolbar,
