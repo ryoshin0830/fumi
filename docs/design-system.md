@@ -36,7 +36,7 @@ Existing signed ciphertext keeps visible pending, verified, mismatch and unavail
 
 - Background `#f5f5f7`, surface `#ffffff`, text `#1d1d1f`, secondary `#61616b`, accent `#0066cc`, line `#d2d2d7`, error `#b42318`, success `#247247`.
 - System sans-serif. Inputs and result text 16px; labels and buttons 14px; privacy/metadata 12px. No external fonts.
-- A 1160px outer grid contains the introduction and tool with a 48px gap. Stack below 760px; use 24px workspace padding (20px on mobile), 24px tool corners and 12px input corners.
+- A 1160px outer grid contains the introduction and tool with a 48px gap. The desktop tool is centered and capped at 720px high. Stack below 760px; use 24px workspace padding (16px on mobile), 24px tool corners and 12px input corners.
 - Minimum 44px targets, 48px primary actions, visible keyboard focus, explicit labels, inline errors and a live status region. Decorative SVGs are hidden from assistive technology.
 - Allocate the `100svh` height between the header and workspace. Normal initial, profile, manual-key, password and result states fit the viewport without page scrolling. Primary actions stay outside the inner scroll areas. Long files, ciphertext and expanded signature metadata scroll inside the result content. Do not mask overflow on the document or disable zoom.
 - Responsive layouts tested from 375×667 to 1440×900, with reduced-motion support. The selected tab has a moving surface and subtle shadow. Clear/help remain in the header above the tool.
@@ -62,7 +62,9 @@ Content, private keys and passwords stay in the browser. Public-key, public-prof
 
 The header has a native language selector with a visible label, native language
 names and a 44px target. Eleven languages share the existing type, color and
-spacing system. Labels wrap on narrow screens; Arabic uses RTL layout while
-key fields, usernames and commands keep LTR direction. Locale changes refresh
+spacing system. On narrow screens the language selector stays beside the brand,
+with clear and help on the next row in keyboard order. Labels wrap as needed;
+Arabic mirrors the selected-operation background, action alignment and empty
+field hints, while key fields, usernames and commands keep LTR input direction. Locale changes refresh
 only explicitly registered interface copy and attributes, preserving drafts,
 files, results, profile data and ongoing work. Only the locale is saved locally.

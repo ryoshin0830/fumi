@@ -38,6 +38,121 @@ assert.equal(await page.evaluate(() => document.documentElement.lang), 'en');
 await page.selectOption('#language-select', 'ar');
 assert.equal(await page.evaluate(() => document.documentElement.dir), 'rtl');
 passed.push('blocked storage allows detection and switching');
+
+// Check the actual controls, not just the width of the document: a select can
+// fit the viewport while clipping its selected language, and RTL tabs can put
+// the moving background under the unselected operation.
+await page.cdp('Emulation.setDeviceMetricsOverride', {
+  width: 320,
+  height: 640,
+  deviceScaleFactor: 1,
+  mobile: true,
+});
+for (const locale of locales) {
+  await page.selectOption('#language-select', locale);
+  const select = await page.evaluate(() => {
+    const node = document.getElementById('language-select');
+    const style = getComputedStyle(node);
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    context.font = style.font;
+    return {
+      width: node.getBoundingClientRect().width,
+      needed:
+        context.measureText(node.selectedOptions[0].textContent).width +
+        parseFloat(style.paddingLeft) +
+        parseFloat(style.paddingRight) +
+        18,
+      height: node.getBoundingClientRect().height,
+      direction: document.documentElement.dir,
+      controls: ['.brand', '.language-control', '#clear-button', '#help-button'].map((selector) => {
+        const rect = document.querySelector(selector).getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+      }),
+    };
+  });
+  assert.ok(
+    select.width >= select.needed,
+    locale + ' language name is clipped: ' + JSON.stringify(select),
+  );
+  assert.ok(select.height >= 44, locale + ' language selector is too short');
+  for (const [index, control] of select.controls.entries()) {
+    assert.ok(
+      control.left >= 0 && control.right <= 320,
+      locale + ' header control outside viewport',
+    );
+    const next = select.controls[index + 1];
+    if (!next) continue;
+    assert.ok(
+      next.top >= control.bottom - 1 ||
+        (Math.abs(next.top - control.top) < 1 &&
+          (select.direction === 'rtl'
+            ? next.right <= control.left + 1
+            : next.left >= control.right - 1)),
+      locale + ' header order or spacing: ' + JSON.stringify(select.controls),
+    );
+  }
+}
+await page.selectOption('#language-select', 'ar');
+await page.cdp('Emulation.setEmulatedMedia', {
+  features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+});
+const arabicField = await page.evaluate(() => {
+  const input = document.getElementById('github-user');
+  return {
+    valueDirection: getComputedStyle(input).direction,
+    placeholderAlignment: getComputedStyle(input, '::placeholder').textAlign,
+  };
+});
+assert.deepEqual(arabicField, {
+  valueDirection: 'ltr',
+  placeholderAlignment: 'right',
+});
+for (const operation of ['encrypt', 'decrypt']) {
+  await page.click('#' + operation + '-tab');
+  const distance = await page.evaluate(() => {
+    const tabs = document.querySelector('.operation-tabs');
+    const selected = tabs.querySelector('[aria-selected="true"]').getBoundingClientRect();
+    const container = tabs.getBoundingClientRect();
+    const marker = getComputedStyle(tabs, '::before');
+    const center =
+      container.left +
+      tabs.clientLeft +
+      parseFloat(marker.left) +
+      new DOMMatrix(marker.transform).m41 +
+      parseFloat(marker.width) / 2;
+    return Math.abs(center - (selected.left + selected.width / 2));
+  });
+  assert.ok(distance < 2, 'RTL ' + operation + ' selection marker is misaligned by ' + distance);
+}
+await page.click('#encrypt-tab');
+await page.cdp('Emulation.setEmulatedMedia', { features: [] });
+await page.cdp('Emulation.setDeviceMetricsOverride', {
+  width: 375,
+  height: 844,
+  deviceScaleFactor: 1,
+  mobile: true,
+});
+for (const locale of ['en', 'fr', 'de', 'es', 'pt']) {
+  await page.selectOption('#language-select', locale);
+  const title = await page.evaluate(() => {
+    const heading = document.getElementById('intro-title');
+    const first = heading.querySelector('[data-i18n]').getBoundingClientRect();
+    const second = document.getElementById('intro-action').getBoundingClientRect();
+    return {
+      firstRight: first.right,
+      firstTop: first.top,
+      secondLeft: second.left,
+      secondTop: second.top,
+    };
+  });
+  assert.ok(
+    title.secondTop > title.firstTop + 1 || title.secondLeft >= title.firstRight + 2,
+    locale + ' mobile title joins separate words: ' + JSON.stringify(title),
+  );
+}
+passed.push('small-screen language names, mobile title spacing and RTL operation indicator');
+
 url.searchParams.set('i18n-test', 'saved');
 await page.goto(url.href);
 await page.selectOption('#language-select', 'en');
