@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir, EOL } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { createDecryptionCommand } from '../src/ui/decryption.js';
 
 const pwsh = process.env.FUMI_PWSH || 'pwsh';
@@ -62,7 +62,7 @@ test(
           return $script:lines[$script:position++]
         }
         $result = Read-FumiBlock 'test' $env:FUMI_READER_EXPECTED @($env:FUMI_READER_TAGS | ConvertFrom-Json)
-        [Console]::Out.WriteLine('FUMI_RESULT:' + $result.FromFile + ':' + [Convert]::ToBase64String($result.Bytes))
+        [Console]::Out.WriteLine('FUMI_RESULT:' + $result.FromFile + ':' + [Convert]::ToBase64String($result.Bytes) + ':' + $result.Name)
       }`,
           ],
           {
@@ -77,7 +77,11 @@ test(
           },
         );
         assert.equal(result.status, 0, `case ${index}: ` + result.stderr + result.stdout);
-        assert.ok(result.stdout.includes('FUMI_RESULT:True:' + item.bytes.toString('base64')));
+        assert.ok(
+          result.stdout.includes(
+            'FUMI_RESULT:True:' + item.bytes.toString('base64') + ':' + basename(path),
+          ),
+        );
       }
       // The original pasted-block reader must still return normalized armor bytes.
       const armor = ['-----BEGIN PGP MESSAGE-----', 'test', '-----END PGP MESSAGE-----'];
@@ -103,3 +107,26 @@ test(
     }
   },
 );
+
+test('PowerShell preserves extensions from encrypted file names', { skip: !available }, () => {
+  const command = createDecryptionCommand('powershell');
+  const extensionCode = command.slice(
+    command.indexOf("      $extension = ''"),
+    command.indexOf('      $destination ='),
+  );
+  for (const [name, fromFile, expected] of [
+    ['photo.png.gpg', true, '.png'],
+    ['notes.TXT.ASC', true, '.TXT'],
+    ['archive.tar.gz.age', true, '.gz'],
+    ['no-extension.age', true, ''],
+    ['photo.png.gpg', false, ''],
+  ]) {
+    const script = `$cipher = [pscustomobject]@{ Name = $env:FUMI_NAME; FromFile = ${fromFile ? '$true' : '$false'} }; ${extensionCode}; [Console]::Out.Write($extension)`;
+    const result = spawnSync(pwsh, ['-NoProfile', '-NonInteractive', '-Command', script], {
+      env: { ...process.env, FUMI_NAME: name },
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, expected);
+  }
+});

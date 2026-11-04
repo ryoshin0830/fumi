@@ -96,6 +96,7 @@ try:
     elif config.get("saveFile"):
         assert status == 0, "Native decryption failed with status " + str(status)
         assert len(saved) == 1
+        assert saved[0].suffix == config.get("expectedExtension", ""), "Restored extension is incorrect"
         assert saved[0].read_bytes() == expected
         assert saved[0].name in terminal_output, "Saved file location was not displayed"
         assert saved[0].stat().st_mode & 0o777 == 0o600, "Saved output is not private"

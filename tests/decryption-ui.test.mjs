@@ -172,6 +172,31 @@ test('missing paths and wrong file types retry before accepting a file and a pas
   }
 });
 
+test('restored files retain the extension preceding the encryption suffix', async () => {
+  for (const [cipherName, expectedExtension] of [
+    ['photo.png.gpg', '.png'],
+    ['notes.TXT.ASC', '.TXT'],
+    ['archive.tar.gz.age', '.gz'],
+    ['no-extension.age', ''],
+  ]) {
+    const f = await fixture(Buffer.from([0, 255]));
+    try {
+      await writeFile(join(f.directory, cipherName), pgp);
+      const result = f.execute(`'${cipherName}'\n` + key);
+      assert.equal(result.status, 0, result.stderr);
+      const saved = (await readdir(f.directory)).filter((name) => name.startsWith('restored-'));
+      assert.equal(saved.length, 1);
+      assert.match(
+        saved[0],
+        new RegExp(`^restored-[^.]+${expectedExtension.replace('.', '\\.')}$`),
+      );
+      assert.deepEqual(await readFile(join(f.directory, saved[0])), Buffer.from([0, 255]));
+    } finally {
+      await f.cleanup();
+    }
+  }
+});
+
 test('pasted text can use a key file and failed file decryption saves no partial output', async () => {
   for (const fail of [false, true]) {
     const f = await fixture('authenticated text', fail);

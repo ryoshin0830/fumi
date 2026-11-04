@@ -54,6 +54,15 @@ const posix = String.raw`(
   }
   fumi_read '暗号文を貼り付けるか、ファイルパスを入力してください。' "$fumi_tmp/cipher" '^-----BEGIN (PGP MESSAGE|AGE ENCRYPTED FILE)-----|^age-encryption.org/v1' cipher
   fumi_cipher_file=$fumi_file
+  fumi_ext=
+  if [ "$fumi_cipher_file" = 1 ]; then
+    fumi_name=$(printf '%s' "$fumi_path" | sed 's|.*/||')
+    case "$fumi_name" in
+      *.[gG][pP][gG]|*.[pP][gG][pP]|*.[aA][sS][cC]|*.[aA][gG][eE])
+        fumi_name=$(printf '%s' "$fumi_name" | sed 's/\.[^.]*$//')
+        fumi_ext=$(printf '%s' "$fumi_name" | LC_ALL=C sed -n 's/^.*\.\([a-zA-Z0-9]\{1,32\}\)$/.\1/p') ;;
+    esac
+  fi
   if ! grep -aqE '^-----BEGIN AGE ENCRYPTED FILE-----|^age-encryption.org/v1' "$fumi_tmp/cipher"; then
     command -v gpg >/dev/null 2>&1 || { printf '%s\n' 'gpg が必要です。' >&2; exit 1; }
     fumi_read '秘密鍵を貼り付けるか、ファイルパスを入力してください。' "$fumi_tmp/key" '^-----BEGIN PGP PRIVATE KEY BLOCK-----' pgp-key
@@ -74,6 +83,11 @@ const posix = String.raw`(
   else
     fumi_output=$(mktemp ./restored-XXXXXXXX) || exit 1
     cat "$fumi_tmp/plaintext" > "$fumi_output" || { rm -f -- "$fumi_output"; exit 1; }
+    if [ -n "$fumi_ext" ]; then
+      ln "$fumi_output" "$fumi_output$fumi_ext" || { rm -f -- "$fumi_output"; exit 1; }
+      rm -f -- "$fumi_output"
+      fumi_output=$fumi_output$fumi_ext
+    fi
     printf 'ファイルに保存しました: %s\n' "$fumi_output"
   fi
 )`;
@@ -111,7 +125,7 @@ const powershell = String.raw`& {
       }
       if (-not $fromFile) { $bytes = [Text.UTF8Encoding]::new($false).GetBytes($value) }
       if ($value -match $expected -or ($fromFile -and $bytes.Length -gt 0 -and $bytes[0] -in $packetTags)) {
-        return [pscustomobject]@{ Bytes = $bytes; FromFile = $fromFile }
+        return [pscustomobject]@{ Bytes = $bytes; FromFile = $fromFile; Name = if ($fromFile) { [IO.Path]::GetFileName($path) } else { '' } }
       }
       Write-Warning '内容やファイルを確認して、もう一度貼り付けてください。'
     } while ($true)
@@ -154,7 +168,9 @@ const powershell = String.raw`& {
       [Console]::Out.Write($text)
       [Console]::Error.WriteLine()
     } else {
-      $destination = Join-Path (Get-Location).Path ('restored-' + [guid]::NewGuid().ToString('N'))
+      $extension = ''
+      if ($cipher.FromFile -and $cipher.Name -match '\.([a-zA-Z0-9]{1,32})\.(gpg|pgp|asc|age)$') { $extension = '.' + $Matches[1] }
+      $destination = Join-Path (Get-Location).Path ('restored-' + [guid]::NewGuid().ToString('N') + $extension)
       $file = [IO.File]::Open($destination, 'CreateNew', 'Write')
       try { $file.Write($bytes, 0, $bytes.Length) } finally { $file.Dispose() }
       Write-Host "ファイルに保存しました: $destination"

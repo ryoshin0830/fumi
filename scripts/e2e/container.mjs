@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 import { chromium } from 'playwright-core';
 import { generateKey, readPrivateKey } from 'openpgp';
 
@@ -220,6 +220,8 @@ try {
         original: fixture.original,
         binary: fixture.binary,
         saveFile: fixture.binary || !!cipher.delivery,
+        expectedExtension:
+          fixture.fileInput && scenario !== 'tampered' ? extname(fixture.original) : '',
         expectFailure: scenario === 'tampered',
       }),
     );
